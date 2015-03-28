@@ -1,59 +1,156 @@
 package bgp
 
-import "net"
-
-// The differerent type of messages.
-const (
-	_ = iota
-	TypeOpen
-	TypeUpdate
-	TypeNotification
-	TypeKeepalive
-	TypeRouteRefresh // See RFC 2918
+import (
+	"encoding/binary"
+	"fmt"
 )
 
-// Heeader is the fixed-side header for each BGP message. See
-// RFC 4271, section 4.1
-type Header struct {
-	Marker [16]byte // 16 octect field, MUST be all ones.
-	Length uint16
-	Type   uint8
+// Pack -> convert to wirefmt
+// Unpack -> convert FROM wirefmt
+
+const (
+	headerLen = 19
+	MaxSize   = 4096
+)
+
+// pack converts a header into wireformat and stores the result in buf
+func (h Header) pack(buf []byte) (int, error) {
+	if len(buf) < headerLen {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
+	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
+	buf[8], buf[9], buf[10], buf[11] = 0xff, 0xff, 0xff, 0xff
+	buf[12], buf[13], buf[14], buf[15] = 0xff, 0xff, 0xff, 0xff
+
+	binary.BigEndian.PutUint16(buf[16:], h.Length)
+
+	buf[18] = h.Type
+	return 19, nil
 }
 
-type LengthPrefix struct {
-	Length uint8 // Length in bits of Prefix.
-	Prefix net.IP
+// unpack converts the wireformat to a header
+func (h Header) unpack(buf []byte) (int, error) {
+	if len(buf) < headerLen {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	h.Marker[0], h.Marker[1], h.Marker[2], h.Marker[3] = buf[0], buf[1], buf[2], buf[3]
+	h.Marker[4], h.Marker[5], h.Marker[6], h.Marker[7] = buf[4], buf[5], buf[6], buf[7]
+	h.Marker[8], h.Marker[9], h.Marker[10], h.Marker[11] = buf[8], buf[9], buf[10], buf[11]
+	h.Marker[12], h.Marker[13], h.Marker[14], h.Marker[15] = buf[12], buf[13], buf[14], buf[15]
+
+	h.Length = binary.BigEndian.Uint16(buf[16:])
+
+	h.Type = buf[18]
+	return 19, nil
 }
 
-type PathAttribute struct {
-	Flags  uint8
-	Code   uint8
-	Length uint16 // If ExtendedLength is set this uses all 16 bits, otherwise we use 8
-	Value  []byte
+// pack convert LengthPrefix into wireformat.
+func (lp *LengthPrefix) pack(buf []byte) (int, error) {
+	if len(buf) < 1 {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	buf[0] = byte(lp.Length)
+
+	if len(buf[1:]) < int(lp.Length/8) {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+
+	for i := 0; i < int(lp.Length/8); i++ {
+		buf[1+i] = lp.Prefix[i]
+	}
+	return 1 + int(lp.Length/8), nil
 }
 
-type Parameter struct {
-	Type   uint8
-	Length uint8
-	Value  []byte
+// unpack convert the wireformat to a LengthPrefix.
+func (lp *LengthPrefix) unpack(buf []byte) (int, error) {
+	if len(buf) < 1 {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+
+	lp.Length = buf[0]
+
+	if len(buf[1:]) < int(lp.Length/8) {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+
+	for i := 0; i < int(lp.Length/8); i++ {
+		lp.Prefix[i] = buf[1+i]
+	}
+	// now zero the last byte, otherwise there could be random crap in there.
+	return 1 + int(lp.Length/8), nil
 }
 
-// OPEN holds the information used in the OPEN message format. RFC 4271, Section 4.2.
-type OPEN struct {
-	Header
-	Version            uint8
-	MyAutonomousSystem uint16
-	HoldTime           uint16
-	BGPIdentifier      net.IP // Must always be a v4 address
-	ParametersLength   uint8
-	Parameters         *[]Parameter
+// pack convert to writeformat.
+func (pa *PathAttribute) pack(buf []byte) (int, error) {
+	if len(buf) < 4 {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	buf[0] = pa.Flags
+	buf[1] = pa.Code
+	// Check flags to see how many octects length has
+	return 0, nil
 }
 
-// UPDATE holds the information used in the UPDATE message format. RFC 4271, section 4.3
-type UPDATE struct {
-	WithdrawnRoutesLength               uint16
-	WithdrawnRoutes                     []*LengthPrefix
-	PathAttributeLength                 uint16
-	PathAttributes                      []*PathAttribute
-	NetworkLayerReachabilityInformation []*LengthPrefix
+// unpack converts to a PathAttribute
+func (pa *PathAttribute) unpack(buf []byte) (int, error) {
+	return 0, nil
+}
+
+// convert to wireformat.
+func (p *Parameter) pack(buf []byte) (int, error) {
+	if len(buf) < 3 {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	buf[0] = p.Type
+	buf[1] = p.Length
+	if len(buf[2:]) < int(p.Length) {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	for i := 0; i < int(p.Length); i++ {
+		buf[i+2] = p.Value[i]
+	}
+	return 2 + int(p.Length), nil
+}
+
+// Convert back to Parameter
+func (p *Parameter) unpack(buf []byte) (int, error) {
+	if len(buf) < 3 {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	p.Type = buf[0]
+	p.Length = buf[1]
+	if len(buf[2:]) < int(p.Length) {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	for i := 0; i < int(p.Length); i++ {
+		p.Value[i] = buf[i+2]
+	}
+	return 2 + int(p.Length), nil
+}
+
+func (m *OPEN) Pack(buf []byte) (int, error) {
+	offset := 0
+	n, err := m.Header.pack(buf[offset:])
+	if err != nil {
+		return offset, err
+	}
+	offset += n
+	// version
+	// myautonamous system
+	// holdtime
+	// bgpident
+	// parameterslength
+	for _, p := range *m.Parameters {
+		n, err := p.pack(buf[offset:])
+		if err != nil {
+			return offset, err
+		}
+		offset+=n
+	}
+	return offset, nil
+}
+
+func (m *OPEN) Unpack(buf []byte) (int, error) {
+	return 0, nil
 }
