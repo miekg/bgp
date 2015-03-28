@@ -124,8 +124,10 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 // Pack converts an OPEN message to wire format.
 func (m *OPEN) Pack(buf []byte) (int, error) {
 	offset := 0
+	m.Type = typeOpen
 
-	// get length for tne
+	// if l > 255 -> problem, TODO
+	m.len()
 
 	n, err := m.Header.pack(buf[offset:])
 	if err != nil {
@@ -145,13 +147,8 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 		m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3]
 	offset += 4
 
-	// parameterslength
-	l := 0
-	for _, p := range *m.Parameters {
-		l += p.len()
-	}
-	// if l > 255 -> problem, TODO
-	buf[offset] = byte(l)
+	buf[offset] = m.ParametersLength
+
 	offset++
 
 	for _, p := range *m.Parameters {

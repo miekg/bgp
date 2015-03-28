@@ -5,11 +5,11 @@ import "net"
 // The differerent type of messages.
 const (
 	_ = iota
-	TypeOpen
-	TypeUpdate
-	TypeNotification
-	TypeKeepalive
-	TypeRouteRefresh // See RFC 2918
+	typeOpen
+	typeUpdate
+	typeNotification
+	typeKeepalive
+	typeRouteRefresh // See RFC 2918
 
 	headerLen = 19
 	MaxSize   = 4096
@@ -63,11 +63,18 @@ type OPEN struct {
 }
 
 // len returns the length of the entire message.
+// It also sets the length in the header and the ParametersLength
+// in the body.
 func (m *OPEN) len() int {
-	// todo I calculate the lengths of the params twice
-	// set paramlen as well.:w
-	`
-	return headerLen + 10 // + len(params) 
+	l := 0
+	for _, p := range *m.Parameters {
+		l += p.len()
+	}
+	m.ParametersLength = uint8(l)
+
+	m.Header.Length = headerLen + 10 + uint16(m.ParametersLength)
+
+	return int(m.Header.Length)
 }
 
 // UPDATE holds the information used in the UPDATE message format. RFC 4271, section 4.3
@@ -78,4 +85,32 @@ type UPDATE struct {
 	PathAttributeLength                 uint16
 	PathAttributes                      []*PathAttribute
 	NetworkLayerReachabilityInformation []*LengthPrefix
+}
+
+func (m *UPDATE) len() int {
+	m.Header.Length = headerLen // + more shit
+	return int(m.Header.Length)
+}
+
+// KEEPALIVE holds only the header and is used for keep alive pings.
+type KEEPALIVE struct {
+	*Header
+}
+
+func (m *KEEPALIVE) len() int {
+	m.Header.Length = headerLen
+	return int(m.Header.Length)
+}
+
+// NOTIFICATION holds an error. The TCP connection is closed after sending it.
+type NOTIFICATION struct {
+	*Header
+	ErrorCode uint8
+	ErrorSubcode uint8
+	Data []byte
+}
+
+func (m *NOTIFICATION) len() int {
+	m.Header.Length = headerLen + 2 + uint16(len(m.Data))
+	return int(m.Header.Length)
 }
