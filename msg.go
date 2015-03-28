@@ -5,16 +5,8 @@ import (
 	"fmt"
 )
 
-// Pack -> convert to wirefmt
-// Unpack -> convert FROM wirefmt
-
-const (
-	headerLen = 19
-	MaxSize   = 4096
-)
-
 // pack converts a header into wireformat and stores the result in buf
-func (h Header) pack(buf []byte) (int, error) {
+func (h *Header) pack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
@@ -30,7 +22,7 @@ func (h Header) pack(buf []byte) (int, error) {
 }
 
 // unpack converts the wireformat to a header
-func (h Header) unpack(buf []byte) (int, error) {
+func (h *Header) unpack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
@@ -129,24 +121,45 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 	return 2 + int(p.Length), nil
 }
 
+// Pack converts an OPEN message to wire format.
 func (m *OPEN) Pack(buf []byte) (int, error) {
 	offset := 0
+
+	// get length for tne
+
 	n, err := m.Header.pack(buf[offset:])
 	if err != nil {
 		return offset, err
 	}
 	offset += n
-	// version
-	// myautonamous system
-	// holdtime
-	// bgpident
+	buf[offset] = m.Version
+	offset++
+
+	binary.BigEndian.PutUint16(buf[offset:], m.MyAutonomousSystem)
+	offset += 2
+
+	binary.BigEndian.PutUint16(buf[offset:], m.HoldTime)
+	offset += 2
+
+	buf[offset], buf[offset+1], buf[offset+2], buf[offset+3] =
+		m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3]
+	offset += 4
+
 	// parameterslength
+	l := 0
+	for _, p := range *m.Parameters {
+		l += p.len()
+	}
+	// if l > 255 -> problem, TODO
+	buf[offset] = byte(l)
+	offset++
+
 	for _, p := range *m.Parameters {
 		n, err := p.pack(buf[offset:])
 		if err != nil {
 			return offset, err
 		}
-		offset+=n
+		offset += n
 	}
 	return offset, nil
 }
