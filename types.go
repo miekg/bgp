@@ -19,7 +19,7 @@ const (
 type Message interface {
 	pack([]byte) (int, error)
 	unpack([]byte) (int, error)
-	//	String() string
+//	String() string
 	Len() int
 }
 

@@ -4,11 +4,12 @@ import "strconv"
 
 // Error is an error the BGP protocol can return.
 type Error struct {
-	Code    int
-	Subcode int
-	Err     string
+	Code    int	// Code as defined in RFC 4271.
+	Subcode int	// Subcode as defined in RFC 4271.
+	Err     string  // Non mandatory extra text added by this package.
 }
 
+// NewError returns a pointer to an Error.
 func NewError(code, subcode int, extra string) *Error {
 	return &Error{code, subcode, extra}
 }
