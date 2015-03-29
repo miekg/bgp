@@ -73,7 +73,6 @@ func (pa *PathAttr) len() int {
 
 type Parameter struct {
 	Type uint8
-	// The length of Value MUST fit in a uint8.
 	Value []byte
 }
 
@@ -90,8 +89,7 @@ type OPEN struct {
 }
 
 // Len returns the length of the entire OPEN message.
-// It also sets the length in the header and the ParametersLength
-// in the body.
+// When called is also sets the length in m.Length.
 func (m *OPEN) Len() int {
 	l := 0
 	for _, p := range m.Parameters {

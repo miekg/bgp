@@ -19,3 +19,4 @@ client.KeepAlive - etc.
 * fix all error uses
 * make an actual client
 * create server infra ala net/http, godns
+* Not sure about Pack/Unpack names maybe Marshall/Unmarshall

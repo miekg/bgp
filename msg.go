@@ -8,7 +8,7 @@ import (
 // pack converts a header into wireformat and stores the result in buf
 func (h *Header) pack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
-		return 0, newError(1, 2, "buffer size too small")
+		return 0, NewError(1, 2, "buffer size too small")
 	}
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
@@ -24,7 +24,7 @@ func (h *Header) pack(buf []byte) (int, error) {
 // unpack converts the wireformat to a header
 func (h *Header) unpack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
-		return 0, newError(1, 2, "buffer size too small")
+		return 0, NewError(1, 2, "buffer size too small")
 	}
 	h.Marker[0], h.Marker[1], h.Marker[2], h.Marker[3] = buf[0], buf[1], buf[2], buf[3]
 	h.Marker[4], h.Marker[5], h.Marker[6], h.Marker[7] = buf[4], buf[5], buf[6], buf[7]
@@ -133,7 +133,7 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 	}
 
 	m.Length = uint16(m.Len())
-	m.Type = typeOpen // be sure we encoding an OPEN message
+	m.Type = typeOpen // be sure we're encoding an OPEN message
 
 	offset := 0
 
@@ -247,5 +247,5 @@ func Unpack(buf []byte) (Message, int, error) {
 		k := new(KEEPALIVE)
 		return k, offset, nil
 	}
-	return nil, n, fmt.Errorf("bgp: bad message type seen: %d", h.Type)
+	return nil, n, NewError(1, 3, fmt.Sprintf("bad type: %d", h.Type))
 }

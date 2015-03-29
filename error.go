@@ -2,7 +2,7 @@ package bgp
 
 import "strconv"
 
-// BGPError is an error the BGP protocol can return.
+// Error is an error the BGP protocol can return.
 type Error struct {
 	Code    int
 	Subcode int
