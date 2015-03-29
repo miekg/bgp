@@ -74,18 +74,22 @@ func (lp *LengthPrefix) unpack(buf []byte) (int, error) {
 }
 
 // pack convert to writeformat.
-func (pa *PathAttribute) pack(buf []byte) (int, error) {
+func (pa *PathAttr) pack(buf []byte) (int, error) {
 	if len(buf) < 4 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
 	buf[0] = pa.Flags
 	buf[1] = pa.Code
-	// Check flags to see how many octects length has
+	if pa.Flags&FlagLength == FlagLength {
+		binary.BigEndian.PutUint16(buf[2:], uint16(len(pa.Value)))
+	} else {
+		buf[2] = uint8(len(pa.Value))
+	}
 	return 0, nil
 }
 
-// unpack converts to a PathAttribute
-func (pa *PathAttribute) unpack(buf []byte) (int, error) {
+// unpack converts to a PathAttr
+func (pa *PathAttr) unpack(buf []byte) (int, error) {
 	return 0, nil
 }
 
@@ -95,39 +99,46 @@ func (p *Parameter) pack(buf []byte) (int, error) {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
 	buf[0] = p.Type
-	buf[1] = p.Length
-	if len(buf[2:]) < int(p.Length) {
+	buf[1] = uint8(len(p.Value))
+	if len(buf[2:]) < len(p.Value) {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
-	for i := 0; i < int(p.Length); i++ {
+	for i := 0; i < len(p.Value); i++ {
 		buf[i+2] = p.Value[i]
 	}
-	return 2 + int(p.Length), nil
+	return 2 + len(p.Value), nil
 }
 
-// Convert back to Parameter
+// unpack converts the wireformat  back to a Parameter
 func (p *Parameter) unpack(buf []byte) (int, error) {
 	if len(buf) < 3 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
 	p.Type = buf[0]
-	p.Length = buf[1]
-	if len(buf[2:]) < int(p.Length) {
+	length := int(buf[1])
+	if len(buf[2:]) < length {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
-	for i := 0; i < int(p.Length); i++ {
+	p.Value = make([]byte, length)
+	for i := 0; i < length; i++ {
 		p.Value[i] = buf[i+2]
 	}
-	return 2 + int(p.Length), nil
+	return 2 + length, nil
 }
 
-// Pack converts an OPEN message to wire format.
+// Pack converts an OPEN message to wire format. Note that m.Len() MUST
+// be called before this function. It will panic if this is not the case.
+// TODO(miek): kill the panic, make the lengths implicit.
 func (m *OPEN) Pack(buf []byte) (int, error) {
+	if m.ParametersLength == 0 || m.Header.Length == 0 {
+		panic("bgp: message length should be non zero")
+	}
+	if len(buf) < 29 { // 29 octets is minimum size.
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+
 	offset := 0
 	m.Type = typeOpen
-
-	// if l > 255 -> problem, TODO
-	m.len()
 
 	n, err := m.Header.pack(buf[offset:])
 	if err != nil {
@@ -137,7 +148,7 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 	buf[offset] = m.Version
 	offset++
 
-	binary.BigEndian.PutUint16(buf[offset:], m.MyAutonomousSystem)
+	binary.BigEndian.PutUint16(buf[offset:], m.MyAS)
 	offset += 2
 
 	binary.BigEndian.PutUint16(buf[offset:], m.HoldTime)

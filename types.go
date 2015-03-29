@@ -13,13 +13,13 @@ const (
 
 	headerLen = 19
 	MaxSize   = 4096
-	MinSize   = 27 // TODO(miek): check
+	Version   = 4
 )
 
 // Heeader is the fixed-side header for each BGP message. See
 // RFC 4271, section 4.1
 type Header struct {
-	Marker [16]byte // 16 octect field, MUST be all ones.
+	Marker [16]byte // MUST be all ones...
 	Length uint16
 	Type   uint8
 }
@@ -29,24 +29,32 @@ type LengthPrefix struct {
 	Prefix net.IP
 }
 
-type PathAttribute struct {
-	Flags  uint8
-	Code   uint8
-	Length uint16 // If ExtendedLength is set this uses all 16 bits, otherwise we use 8
-	Value  []byte
+const (
+	FlagOptional   = 1 << 8
+	FlagTransitive = 1 << 7
+	FlagPartial    = 1 << 6
+	FlagLength     = 1 << 5
+)
+
+type PathAttr struct {
+	Flags uint8
+	Code  uint8
+	//If Flag.Length is set length can use 16 bits, otherwise we use 8 bits.
+	// Length uint8 or uint16
+	Value []byte
 }
 
-func (pa *PathAttribute) len() int {
-	if pa.Flags & 0x01 == 0x01 { // whatever check
-		return 2 + 1 + len(pa.Value)
+func (pa *PathAttr) len() int {
+	if pa.Flags&FlagLength == FlagLength {
+		return 2 + 2 + len(pa.Value)
 	}
-	return 2 + 2 + len(pa.Value)
+	return 2 + 1 + len(pa.Value)
 }
 
 type Parameter struct {
-	Type   uint8
-	Length uint8
-	Value  []byte
+	Type uint8
+	// The length of Value MUST fit in a uint8.
+	Value []byte
 }
 
 func (p *Parameter) len() int { return 2 + len(p.Value) }
@@ -54,18 +62,18 @@ func (p *Parameter) len() int { return 2 + len(p.Value) }
 // OPEN holds the information used in the OPEN message format. RFC 4271, Section 4.2.
 type OPEN struct {
 	*Header
-	Version            uint8
-	MyAutonomousSystem uint16
-	HoldTime           uint16
-	BGPIdentifier      net.IP // Must always be a v4 address
-	ParametersLength   uint8
-	Parameters         *[]Parameter
+	Version          uint8
+	MyAS             uint16
+	HoldTime         uint16
+	BGPIdentifier    net.IP // Must always be a v4 address
+	ParametersLength uint8  // TODO: remove and make implicit
+	Parameters       *[]Parameter
 }
 
-// len returns the length of the entire message.
+// Len returns the length of the entire message.
 // It also sets the length in the header and the ParametersLength
 // in the body.
-func (m *OPEN) len() int {
+func (m *OPEN) Len() int {
 	l := 0
 	for _, p := range *m.Parameters {
 		l += p.len()
@@ -80,14 +88,14 @@ func (m *OPEN) len() int {
 // UPDATE holds the information used in the UPDATE message format. RFC 4271, section 4.3
 type UPDATE struct {
 	*Header
-	WithdrawnRoutesLength               uint16
-	WithdrawnRoutes                     []*LengthPrefix
-	PathAttributeLength                 uint16
-	PathAttributes                      []*PathAttribute
-	NetworkLayerReachabilityInformation []*LengthPrefix
+	WithdrawnRoutesLength uint16 // make implicit
+	WithdrawnRoutes       []*LengthPrefix
+	PathAttrLength        uint16 // make implicit
+	PathAttrs             []*PathAttr
+	ReachabilityInfo      []*LengthPrefix
 }
 
-func (m *UPDATE) len() int {
+func (m *UPDATE) Len() int {
 	m.Header.Length = headerLen // + more shit
 	return int(m.Header.Length)
 }
@@ -97,7 +105,7 @@ type KEEPALIVE struct {
 	*Header
 }
 
-func (m *KEEPALIVE) len() int {
+func (m *KEEPALIVE) Len() int {
 	m.Header.Length = headerLen
 	return int(m.Header.Length)
 }
@@ -105,12 +113,12 @@ func (m *KEEPALIVE) len() int {
 // NOTIFICATION holds an error. The TCP connection is closed after sending it.
 type NOTIFICATION struct {
 	*Header
-	ErrorCode uint8
+	ErrorCode    uint8
 	ErrorSubcode uint8
-	Data []byte
+	Data         []byte
 }
 
-func (m *NOTIFICATION) len() int {
+func (m *NOTIFICATION) Len() int {
 	m.Header.Length = headerLen + 2 + uint16(len(m.Data))
 	return int(m.Header.Length)
 }
