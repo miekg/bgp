@@ -126,7 +126,8 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 	return 2 + length, nil
 }
 
-// Pack converts an OPEN message to wire format.
+// Pack converts an OPEN message to wire format. Note that unlike Unpack, Pack also
+// handles the header of the message.
 func (m *OPEN) Pack(buf []byte) (int, error) {
 	if len(buf) < 29 || len(buf) < m.Len() { // 29 octets is minimum size.
 		return 0, fmt.Errorf("bgp: buffer size too small")
@@ -248,4 +249,14 @@ func Unpack(buf []byte) (Message, int, error) {
 		return k, offset, nil
 	}
 	return nil, n, NewError(1, 3, fmt.Sprintf("bad type: %d", h.Type))
+}
+
+// Packs convert Message into wireformat and stores the result in buf. It
+// returns the new offset in buf or an error.
+func Pack(buf []byte, m Message) (int, error) {
+	switch m.(type) {
+	case *OPEN:
+		return m.(*OPEN).Pack(buf)
+	}
+	return 0, NewError(1, 3, "")
 }

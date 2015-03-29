@@ -19,7 +19,7 @@ const (
 type Message interface {
 	pack([]byte) (int, error)
 	unpack([]byte) (int, error)
-//	String() string
+	//	String() string
 	Len() int
 }
 
@@ -72,7 +72,7 @@ func (pa *PathAttr) len() int {
 }
 
 type Parameter struct {
-	Type uint8
+	Type  uint8
 	Value []byte
 }
 

@@ -4,9 +4,9 @@ import "strconv"
 
 // Error is an error the BGP protocol can return.
 type Error struct {
-	Code    int	// Code as defined in RFC 4271.
-	Subcode int	// Subcode as defined in RFC 4271.
-	Err     string  // Non mandatory extra text added by this package.
+	Code    int    // Code as defined in RFC 4271.
+	Subcode int    // Subcode as defined in RFC 4271.
+	Err     string // Non mandatory extra text added by this package.
 }
 
 // NewError returns a pointer to an Error.
