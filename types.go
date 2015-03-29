@@ -16,6 +16,13 @@ const (
 	Version   = 4
 )
 
+type Message interface {
+	pack([]byte) (int, error)
+	unpack([]byte) (int, error)
+	//	String() string
+	Len() int
+}
+
 // Heeader is the fixed-side header for each BGP message. See
 // RFC 4271, section 4.1
 type Header struct {
@@ -29,11 +36,24 @@ type LengthPrefix struct {
 	Prefix net.IP
 }
 
+// PathAttr Flags.
 const (
 	FlagOptional   = 1 << 8
 	FlagTransitive = 1 << 7
 	FlagPartial    = 1 << 6
 	FlagLength     = 1 << 5
+)
+
+// PathAttr Codes.
+const (
+	_ = iota
+	Origin
+	ASPath
+	NextHop
+	MultiExitDisc
+	LocalPref
+	AtomicAggregate
+	Aggregator
 )
 
 type PathAttr struct {
@@ -62,26 +82,22 @@ func (p *Parameter) len() int { return 2 + len(p.Value) }
 // OPEN holds the information used in the OPEN message format. RFC 4271, Section 4.2.
 type OPEN struct {
 	*Header
-	Version          uint8
-	MyAS             uint16
-	HoldTime         uint16
-	BGPIdentifier    net.IP // Must always be a v4 address
-	ParametersLength uint8  // TODO: remove and make implicit
-	Parameters       *[]Parameter
+	Version       uint8
+	MyAS          uint16
+	HoldTime      uint16
+	BGPIdentifier net.IP // Must always be a v4 address
+	Parameters    []Parameter
 }
 
-// Len returns the length of the entire message.
+// Len returns the length of the entire OPEN message.
 // It also sets the length in the header and the ParametersLength
 // in the body.
 func (m *OPEN) Len() int {
 	l := 0
-	for _, p := range *m.Parameters {
+	for _, p := range m.Parameters {
 		l += p.len()
 	}
-	m.ParametersLength = uint8(l)
-
-	m.Header.Length = headerLen + 10 + uint16(m.ParametersLength)
-
+	m.Header.Length = headerLen + 10 + uint16(l)
 	return int(m.Header.Length)
 }
 
@@ -89,10 +105,10 @@ func (m *OPEN) Len() int {
 type UPDATE struct {
 	*Header
 	WithdrawnRoutesLength uint16 // make implicit
-	WithdrawnRoutes       []*LengthPrefix
-	PathAttrLength        uint16 // make implicit
-	PathAttrs             []*PathAttr
-	ReachabilityInfo      []*LengthPrefix
+	WithdrawnRoutes       []LengthPrefix
+	PathAttrsLength       uint16 // make implicit
+	PathAttrs             []PathAttr
+	ReachabilityInfo      []LengthPrefix
 }
 
 func (m *UPDATE) Len() int {

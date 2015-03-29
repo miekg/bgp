@@ -8,7 +8,7 @@ import (
 // pack converts a header into wireformat and stores the result in buf
 func (h *Header) pack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
-		return 0, fmt.Errorf("bgp: buffer size too small")
+		return 0, newError(1, 2, "buffer size too small")
 	}
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
@@ -24,7 +24,7 @@ func (h *Header) pack(buf []byte) (int, error) {
 // unpack converts the wireformat to a header
 func (h *Header) unpack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
-		return 0, fmt.Errorf("bgp: buffer size too small")
+		return 0, newError(1, 2, "buffer size too small")
 	}
 	h.Marker[0], h.Marker[1], h.Marker[2], h.Marker[3] = buf[0], buf[1], buf[2], buf[3]
 	h.Marker[4], h.Marker[5], h.Marker[6], h.Marker[7] = buf[4], buf[5], buf[6], buf[7]
@@ -126,19 +126,16 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 	return 2 + length, nil
 }
 
-// Pack converts an OPEN message to wire format. Note that m.Len() MUST
-// be called before this function. It will panic if this is not the case.
-// TODO(miek): kill the panic, make the lengths implicit.
+// Pack converts an OPEN message to wire format.
 func (m *OPEN) Pack(buf []byte) (int, error) {
-	if m.ParametersLength == 0 || m.Header.Length == 0 {
-		panic("bgp: message length should be non zero")
-	}
-	if len(buf) < 29 { // 29 octets is minimum size.
+	if len(buf) < 29 || len(buf) < m.Len() { // 29 octets is minimum size.
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
 
+	m.Length = uint16(m.Len())
+	m.Type = typeOpen // be sure we encoding an OPEN message
+
 	offset := 0
-	m.Type = typeOpen
 
 	n, err := m.Header.pack(buf[offset:])
 	if err != nil {
@@ -158,20 +155,97 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 		m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3]
 	offset += 4
 
-	buf[offset] = m.ParametersLength
-
+	// Save for parameter length
+	plengthOffset := offset
 	offset++
 
-	for _, p := range *m.Parameters {
+	l := 0
+	for _, p := range m.Parameters {
 		n, err := p.pack(buf[offset:])
 		if err != nil {
 			return offset, err
 		}
+		l += p.len()
 		offset += n
+	}
+	buf[plengthOffset] = uint8(l)
+	return offset, nil
+}
+
+// Unpack converts wire format in buf to an OPEN message.
+// The header should be already parsed and buf should start on the
+// beginning of the message. The header should also already be set in m.
+// Unpack returns the amount of bytes parsed or an error.
+func (m *OPEN) Unpack(buf []byte) (int, error) {
+	if len(buf) < int(m.Length) {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+
+	offset := 0
+
+	m.Version = buf[offset]
+	offset++
+
+	m.MyAS = binary.BigEndian.Uint16(buf[offset:])
+	offset += 2
+
+	m.HoldTime = binary.BigEndian.Uint16(buf[offset:])
+	offset += 2
+
+	m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3] =
+		buf[offset], buf[offset+1], buf[offset+2], buf[offset+3]
+	offset += 4
+
+	pLength := int(buf[offset])
+	offset++
+	if len(buf) < offset+pLength {
+		return offset, fmt.Errorf("bgp: buffer size too small")
+	}
+
+	i := 0
+	for i < pLength {
+		p := Parameter{}
+		n, e := p.unpack(buf[i+offset:])
+		if e != nil {
+			return offset, e
+		}
+		i += n
+		offset += n
+		m.Parameters = append(m.Parameters, p)
 	}
 	return offset, nil
 }
 
-func (m *OPEN) Unpack(buf []byte) (int, error) {
-	return 0, nil
+// Unpack converts the wire format in buf to a BGP message. The first parsed
+// message is returned together with the new offset in buf. If the parsing
+// fails an error is returned.
+func Unpack(buf []byte) (Message, int, error) {
+	offset := 0
+
+	h := new(Header)
+	n, e := h.unpack(buf)
+	offset += n
+	if e != nil {
+		return nil, offset, e
+	}
+
+	switch h.Type {
+	case typeOpen:
+		o := new(OPEN)
+		o.Header = h
+		n, e = o.Unpack(buf[offset:])
+		offset += n
+		if e != nil {
+			return nil, offset, e
+		}
+		return o, offset, nil
+	case typeUpdate:
+		u := new(UPDATE)
+		return u, offset, nil
+		// TODO
+	case typeKeepalive:
+		k := new(KEEPALIVE)
+		return k, offset, nil
+	}
+	return nil, n, fmt.Errorf("bgp: bad message type seen: %d", h.Type)
 }
