@@ -253,8 +253,7 @@ func Unpack(buf []byte) (Message, int, error) {
 
 	switch h.Type {
 	case typeOpen:
-		o := new(OPEN)
-		o.Header = h
+		o := &OPEN{Header: h}
 		n, e = o.Unpack(buf[offset:])
 		offset += n
 		if e != nil {
@@ -262,11 +261,11 @@ func Unpack(buf []byte) (Message, int, error) {
 		}
 		return o, offset, nil
 	case typeUpdate:
-		u := new(UPDATE)
+		u := &UPDATE{Header: h}
 		return u, offset, nil
 		// TODO
 	case typeKeepalive:
-		k := new(KEEPALIVE)
+		k := &KEEPALIVE{Header: h}
 		return k, offset, nil
 	}
 	return nil, n, NewError(1, 3, fmt.Sprintf("bad type: %d", h.Type))

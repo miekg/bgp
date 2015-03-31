@@ -96,8 +96,9 @@ type OPEN struct {
 
 // NewOPEN returns an initialized OPEN message.
 func NewOPEN(MyAS, HoldTime uint16, BGPIdentifier net.IP, Parameters []Parameter) *OPEN {
-	return &OPEN{Header: newHeader(typeOpen), Version: Version, MyAS: MyAS, HoldTime: HoldTime,
-		BGPIdentifier: BGPIdentifier.To4(), Parameters: Parameters}
+
+	return &OPEN{Header: newHeader(typeOpen), Version: Version, MyAS: MyAS,
+		HoldTime: HoldTime, BGPIdentifier: BGPIdentifier.To4(), Parameters: Parameters}
 }
 
 // Len returns the length of the entire OPEN message.
