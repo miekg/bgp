@@ -3,12 +3,13 @@ package bgp
 import (
 	"encoding/binary"
 	"fmt"
+	"net"
 )
 
 // pack converts a header into wireformat and stores the result in buf
 func (h *Header) pack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
-		return 0, NewError(1, 2, "buffer size too small")
+		return 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
@@ -24,7 +25,7 @@ func (h *Header) pack(buf []byte) (int, error) {
 // unpack converts the wireformat to a header
 func (h *Header) unpack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
-		return 0, NewError(1, 2, "buffer size too small")
+		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
 	h.Marker[0], h.Marker[1], h.Marker[2], h.Marker[3] = buf[0], buf[1], buf[2], buf[3]
 	h.Marker[4], h.Marker[5], h.Marker[6], h.Marker[7] = buf[4], buf[5], buf[6], buf[7]
@@ -129,10 +130,6 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 // Pack converts an OPEN message to wire format. Note that unlike Unpack, Pack also
 // handles the header of the message.
 func (m *OPEN) Pack(buf []byte) (int, error) {
-	if len(buf) < 29 || len(buf) < m.Len() { // 29 octets is minimum size.
-		return 0, NewError(1, 2, "buffer size too small")
-	}
-
 	m.Length = uint16(m.Len())
 	m.Type = typeOpen // be sure we're encoding an OPEN message
 
@@ -178,8 +175,8 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 // beginning of the message. The header should also already be set in m.
 // Unpack returns the amount of bytes parsed or an error.
 func (m *OPEN) Unpack(buf []byte) (int, error) {
-	if len(buf) < int(m.Length) {
-		return 0, NewError(1, 2, "buffer size too small")
+	if len(buf) < int(m.Length)-headerLen {
+		return 0, NewError(2, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length-headerLen))
 	}
 
 	offset := 0
@@ -193,6 +190,7 @@ func (m *OPEN) Unpack(buf []byte) (int, error) {
 	m.HoldTime = binary.BigEndian.Uint16(buf[offset:])
 	offset += 2
 
+	m.BGPIdentifier = net.IPv4(0, 0, 0, 0)
 	m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3] =
 		buf[offset], buf[offset+1], buf[offset+2], buf[offset+3]
 	offset += 4
@@ -200,7 +198,7 @@ func (m *OPEN) Unpack(buf []byte) (int, error) {
 	pLength := int(buf[offset])
 	offset++
 	if len(buf) < offset+pLength {
-		return offset, fmt.Errorf("bgp: buffer size too small")
+		return offset, NewError(2, 0, fmt.Sprintf("bgp: buffer size too small: %d < %d", len(buf), offset+pLength))
 	}
 
 	i := 0
@@ -237,7 +235,7 @@ func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
 func (m *KEEPALIVE) Unpack(buf []byte) (int, error) {
 	// a noop because a KEEPALIVE is *just* the header and it should
 	// already parsed.
-	return 0, nil
+	return 0, nil // 1, nil?
 }
 
 // Unpack converts the wire format in buf to a BGP message. The first parsed
@@ -277,9 +275,9 @@ func Unpack(buf []byte) (Message, int, error) {
 // Packs convert Message into wireformat and stores the result in buf. It
 // returns the new offset in buf or an error.
 func Pack(buf []byte, m Message) (int, error) {
-	switch m.(type) {
+	switch x := m.(type) {
 	case *OPEN:
-		return m.(*OPEN).Pack(buf)
+		return x.Pack(buf)
 	}
 	return 0, NewError(1, 3, "")
 }

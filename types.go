@@ -1,6 +1,8 @@
 package bgp
 
-import "net"
+import (
+	"net"
+)
 
 // The differerent type of messages.
 const (
@@ -31,6 +33,10 @@ type Header struct {
 	Type   uint8
 }
 
+func newHeader(typ int) *Header { return &Header{[16]byte{}, 0, uint8(typ)} }
+
+// Use net.IPNet and friends. It's basically what we want and has supporting
+// functions.
 type LengthPrefix struct {
 	Length uint8 // Length in bits of Prefix.
 	Prefix net.IP
@@ -88,6 +94,12 @@ type OPEN struct {
 	Parameters    []Parameter
 }
 
+// NewOPEN returns an initialized OPEN message.
+func NewOPEN(MyAS, HoldTime uint16, BGPIdentifier net.IP, Parameters []Parameter) *OPEN {
+	return &OPEN{Header: newHeader(typeOpen), Version: Version, MyAS: MyAS, HoldTime: HoldTime,
+		BGPIdentifier: BGPIdentifier.To4(), Parameters: Parameters}
+}
+
 // Len returns the length of the entire OPEN message.
 // When called is also sets the length in m.Length.
 func (m *OPEN) Len() int {
@@ -95,8 +107,7 @@ func (m *OPEN) Len() int {
 	for _, p := range m.Parameters {
 		l += p.len()
 	}
-	m.Header.Length = headerLen + 10 + uint16(l)
-	return int(m.Header.Length)
+	return headerLen + 10 + l
 }
 
 // UPDATE holds the information used in the UPDATE message format. RFC 4271, section 4.3
@@ -109,20 +120,15 @@ type UPDATE struct {
 	ReachabilityInfo      []LengthPrefix
 }
 
-func (m *UPDATE) Len() int {
-	m.Header.Length = headerLen // + more shit
-	return int(m.Header.Length)
-}
+// TODO(miek): incomplete
+func (m *UPDATE) Len() int { return headerLen }
 
 // KEEPALIVE holds only the header and is used for keep alive pings.
 type KEEPALIVE struct {
 	*Header
 }
 
-func (m *KEEPALIVE) Len() int {
-	m.Header.Length = headerLen
-	return int(m.Header.Length)
-}
+func (m *KEEPALIVE) Len() int { return headerLen }
 
 // NOTIFICATION holds an error. The TCP connection is closed after sending it.
 type NOTIFICATION struct {
@@ -133,6 +139,5 @@ type NOTIFICATION struct {
 }
 
 func (m *NOTIFICATION) Len() int {
-	m.Header.Length = headerLen + 2 + uint16(len(m.Data))
-	return int(m.Header.Length)
+	return headerLen + 2 + len(m.Data)
 }

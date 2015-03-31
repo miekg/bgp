@@ -46,39 +46,39 @@ func (e *Error) Error() string {
 }
 
 var errorCodes = map[int]string{
-	1: "Message Header Error",
-	2: "OPEN Message Error",
-	3: "UPDATE Message Error",
-	4: "Hold Timer Expired",
-	5: "Finite State Machine Error",
-	6: "Cease",
+	1: "message header error",
+	2: "OPEN message error",
+	3: "UPDATE message error",
+	4: "hold timer expired",
+	5: "finite state machine error",
+	6: "cease",
 }
 
 var errorSubcodesHeader = map[int]string{
-	1: "Connection Not Synchronized",
-	2: "Bad Message Length",
-	3: "Bad Message Type",
+	1: "connection not synchronized",
+	2: "bad message length",
+	3: "bad message type",
 }
 
 var errorSubcodesOpen = map[int]string{
-	1: "Unsupported Version Number",
-	2: "Bad Peer AS",
-	3: "Bad BGP Identifier",
-	4: "Unsupported Optional Parameter",
+	1: "unsupported version number",
+	2: "bad peer AS",
+	3: "bad BGP identifier",
+	4: "unsupported optional parameter",
 	// 5 deprecated
-	6: "Unacceptable Hold Time",
+	6: "unacceptable hold time",
 }
 
 var errorSubcodesUpdate = map[int]string{
-	1: "Malformed Attribute List",
-	2: "Unrecognized Well-known Attribute",
-	3: "Missing Well-known Attribute",
-	4: "Attribute Flags Error",
-	5: "Attribute Length Error",
-	6: "Invalid ORIGIN Attribute",
+	1: "malformed attribute list",
+	2: "unrecognized well-known attribute",
+	3: "missing well-known attribute",
+	4: "attribute flags error",
+	5: "attribute length error",
+	6: "invalid ORIGIN attribute",
 	// 7 deprecated
-	8:  "Invalid NEXT_HOP Attribute",
-	9:  "Optional Attribute Error",
-	10: "Invalid Network Field",
-	11: "Malformed AS_PATH",
+	8:  "invalid NEXT_HOP attribute",
+	9:  "optional attribute error",
+	10: "invalid network field",
+	11: "malformed AS_PATH",
 }
