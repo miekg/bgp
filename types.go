@@ -24,8 +24,8 @@ type Message interface {
 	Len() int
 }
 
-// Heeader is the fixed-side header for each BGP message. See
-// RFC 4271, section 4.1. The marker is ommitted.
+// Header is the fixed-side header for each BGP message. See
+// RFC 4271, section 4.1. The marker is omitted.
 type Header struct {
 	Length uint16
 	Type   uint8
@@ -35,7 +35,7 @@ func newHeader(typ int) *Header { return &Header{0, uint8(typ)} }
 
 type Prefix net.IPNet
 
-// Mask returns the length of the mask in bits.
+// Size returns the length of the mask in bits.
 func (p *Prefix) Size() int {
 	_, bits := p.Mask.Size()
 	return bits
@@ -90,7 +90,7 @@ type OPEN struct {
 	Version       uint8
 	MyAS          uint16
 	HoldTime      uint16
-	BGPIdentifier net.IP // Must always be a v4 address
+	BGPIdentifier net.IP // Must always be a 4 bytes.
 	Parameters    []Parameter
 }
 
@@ -121,6 +121,7 @@ type UPDATE struct {
 	ReachabilityInfo      []Prefix
 }
 
+// NewUPDATE returns an initialized UPDATE message.
 func NewUPDATE(WithdrawnRoutes []Prefix, Paths []Path, ReachabilityInfo []Prefix) *UPDATE {
 
 	return &UPDATE{Header: newHeader(typeUpdate),
@@ -147,7 +148,9 @@ type KEEPALIVE struct {
 	*Header
 }
 
-func (m *KEEPALIVE) Len() int { return headerLen }
+// NewKEEPALIVE returns an initialized KEEPALIVE message.
+func NewKEEPALIVE() *KEEPALIVE { return &KEEPALIVE{Header: newHeader(typeKeepalive)} }
+func (m *KEEPALIVE) Len() int  { return headerLen }
 
 // NOTIFICATION holds an error. The TCP connection is closed after sending it.
 type NOTIFICATION struct {
