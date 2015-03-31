@@ -38,48 +38,48 @@ func (h *Header) unpack(buf []byte) (int, error) {
 	return 19, nil
 }
 
-// pack convert LengthPrefix into wireformat.
-func (lp *Prefix) pack(buf []byte) (int, error) {
+// pack converts Prefix into wireformat.
+func (p *Prefix) pack(buf []byte) (int, error) {
 	if len(buf) < 1 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
-	buf[0] = byte(lp.Length)
+	buf[0] = byte(p.Size())
 
-	if len(buf[1:]) < int(lp.Length/8) {
+	if len(buf[1:]) < int(p.Size()/8) {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
 
-	for i := 0; i < int(lp.Length/8); i++ {
-		buf[1+i] = lp.Prefix[i]
+	for i := 0; i < int(p.Size()/8); i++ {
+		buf[1+i] = p.IP[i]
 	}
-	return 1 + int(lp.Length/8), nil
+	return 1 + int(p.Size()/8), nil
 }
 
-// unpack convert the wireformat to a LengthPrefix.
-func (lp *Prefix) unpack(buf []byte) (int, error) {
+// unpack converts the wireformat to a Prefix.
+func (p *Prefix) unpack(buf []byte) (int, error) {
 	if len(buf) < 1 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
 
-	lp.Length = buf[0]
+	p.Mask = net.CIDRMask(int(buf[0]), int(buf[0]))
 
-	if len(buf[1:]) < int(lp.Length/8) {
+	if len(buf[1:]) < int(p.Size()/8) {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
 
-	for i := 0; i < int(lp.Length/8); i++ {
-		lp.Prefix[i] = buf[1+i]
+	for i := 0; i < int(p.Size()/8); i++ {
+		p.IP[i] = buf[1+i]
 	}
 	// now zero the last byte, otherwise there could be random crap in there.
-	if mod := lp.Length % 8; mod != 0 {
+	if mod := p.Size() % 8; mod != 0 {
 		// wondering about dd
-		buf[2+mod] &= ^(0xFF >> mod)
+		buf[2+mod] &= ^(0xFF >> uint(mod))
 	}
 
-	return 1 + int(lp.Length/8), nil
+	return 1 + int(p.Size()/8), nil
 }
 
-// pack convert to writeformat.
+// pack converts a Path to writeformat.
 func (pa *PathAttr) pack(buf []byte) (int, error) {
 	if len(buf) < 4 {
 		return 0, fmt.Errorf("bgp: buffer size too small")

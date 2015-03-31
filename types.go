@@ -35,9 +35,13 @@ type Header struct {
 
 func newHeader(typ int) *Header { return &Header{[16]byte{}, 0, uint8(typ)} }
 
-type Prefix struct {
-	Length uint8 // Length in bits of Prefix.
-	Prefix net.IP
+// Prefix wraps a net.IPNet.
+type Prefix net.IPNet
+
+// Mask returns the length in bits of the mask.
+func (p *Prefix) Size() int {
+	_, bits := p.Mask.Size()
+	return bits
 }
 
 // PathAttr Flags.
