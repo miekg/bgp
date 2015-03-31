@@ -80,22 +80,22 @@ func (p *Prefix) unpack(buf []byte) (int, error) {
 }
 
 // pack converts a Path to writeformat.
-func (pa *PathAttr) pack(buf []byte) (int, error) {
+func (p *Path) pack(buf []byte) (int, error) {
 	if len(buf) < 4 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
-	buf[0] = pa.Flags
-	buf[1] = pa.Code
-	if pa.Flags&FlagLength == FlagLength {
-		binary.BigEndian.PutUint16(buf[2:], uint16(len(pa.Value)))
+	buf[0] = p.Flags
+	buf[1] = p.Code
+	if p.Flags&FlagLength == FlagLength {
+		binary.BigEndian.PutUint16(buf[2:], uint16(len(p.Value)))
 	} else {
-		buf[2] = uint8(len(pa.Value))
+		buf[2] = uint8(len(p.Value))
 	}
 	return 0, nil
 }
 
-// unpack converts to a PathAttr
-func (pa *PathAttr) unpack(buf []byte) (int, error) {
+// unpack converts to a Path
+func (p *Path) unpack(buf []byte) (int, error) {
 	return 0, nil
 }
 

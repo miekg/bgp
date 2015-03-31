@@ -64,7 +64,7 @@ const (
 	Aggregator
 )
 
-type PathAttr struct {
+type Path struct {
 	Flags uint8
 	Code  uint8
 	//If Flag.Length is set length can use 16 bits, otherwise we use 8 bits.
@@ -72,11 +72,11 @@ type PathAttr struct {
 	Value []byte
 }
 
-func (pa *PathAttr) len() int {
-	if pa.Flags&FlagLength == FlagLength {
-		return 2 + 2 + len(pa.Value)
+func (p *Path) len() int {
+	if p.Flags&FlagLength == FlagLength {
+		return 2 + 2 + len(p.Value)
 	}
-	return 2 + 1 + len(pa.Value)
+	return 2 + 1 + len(p.Value)
 }
 
 type Parameter struct {
@@ -122,7 +122,7 @@ type UPDATE struct {
 	WithdrawnRoutesLength uint16 // make implicit
 	WithdrawnRoutes       []Prefix
 	PathAttrsLength       uint16 // make implicit
-	PathAttrs             []PathAttr
+	PathAttrs             []Path
 	ReachabilityInfo      []Prefix
 }
 
