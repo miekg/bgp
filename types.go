@@ -41,8 +41,8 @@ func (p *Prefix) Size() int {
 	return bits
 }
 
-// Len returns the length of prefix in bytes.
-func (p *Prefix) Len() int { return 1 + len(p.IP) }
+// len returns the length of prefix in bytes.
+func (p *Prefix) len() int { return 1 + len(p.IP) }
 
 // Path Flags.
 const (
@@ -116,13 +116,31 @@ type UPDATE struct {
 	*Header
 	withdrawnRoutesLength uint16 // make implicit
 	WithdrawnRoutes       []Prefix
-	pathAttrsLength       uint16 // make implicit
-	PathAttrs             []Path
+	pathsLength           uint16 // make implicit
+	Paths                 []Path
 	ReachabilityInfo      []Prefix
 }
 
-// TODO(miek): incomplete
-func (m *UPDATE) Len() int { return headerLen }
+func NewUPDATE(WithdrawnRoutes []Prefix, Paths []Path, ReachabilityInfo []Prefix) *UPDATE {
+
+	return &UPDATE{Header: newHeader(typeUpdate),
+		WithdrawnRoutes: WithdrawnRoutes, Paths: Paths, ReachabilityInfo: ReachabilityInfo}
+}
+
+func (m *UPDATE) Len() int {
+	l := 0
+	for _, p := range m.WithdrawnRoutes {
+		l += p.len()
+	}
+	for _, p := range m.Paths {
+		l += p.len()
+	}
+	for _, p := range m.ReachabilityInfo {
+		l += p.len()
+	}
+
+	return headerLen + 4 + l
+}
 
 // KEEPALIVE holds only the header and is used for keep alive pings.
 type KEEPALIVE struct {
