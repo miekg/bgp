@@ -39,7 +39,7 @@ func (h *Header) unpack(buf []byte) (int, error) {
 }
 
 // pack convert LengthPrefix into wireformat.
-func (lp *LengthPrefix) pack(buf []byte) (int, error) {
+func (lp *Prefix) pack(buf []byte) (int, error) {
 	if len(buf) < 1 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
@@ -56,7 +56,7 @@ func (lp *LengthPrefix) pack(buf []byte) (int, error) {
 }
 
 // unpack convert the wireformat to a LengthPrefix.
-func (lp *LengthPrefix) unpack(buf []byte) (int, error) {
+func (lp *Prefix) unpack(buf []byte) (int, error) {
 	if len(buf) < 1 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}

@@ -35,7 +35,7 @@ type Header struct {
 
 func newHeader(typ int) *Header { return &Header{[16]byte{}, 0, uint8(typ)} }
 
-type LengthPrefix struct {
+type Prefix struct {
 	Length uint8 // Length in bits of Prefix.
 	Prefix net.IP
 }
@@ -76,7 +76,7 @@ func (pa *PathAttr) len() int {
 }
 
 type Parameter struct {
-	Type  uint8
+	Type uint8
 
 	// parm length removed as it is len(Value).
 
@@ -116,10 +116,10 @@ func (m *OPEN) Len() int {
 type UPDATE struct {
 	*Header
 	WithdrawnRoutesLength uint16 // make implicit
-	WithdrawnRoutes       []LengthPrefix
+	WithdrawnRoutes       []Prefix
 	PathAttrsLength       uint16 // make implicit
 	PathAttrs             []PathAttr
-	ReachabilityInfo      []LengthPrefix
+	ReachabilityInfo      []Prefix
 }
 
 // TODO(miek): incomplete
