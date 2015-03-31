@@ -17,6 +17,7 @@ const (
 	Version   = 4    // Current defined version of BGP.
 )
 
+// TODO(miek): finalize this
 type Message interface {
 	pack([]byte) (int, error)
 	unpack([]byte) (int, error)
@@ -96,7 +97,6 @@ type OPEN struct {
 
 // NewOPEN returns an initialized OPEN message.
 func NewOPEN(MyAS, HoldTime uint16, BGPIdentifier net.IP, Parameters []Parameter) *OPEN {
-
 	return &OPEN{Header: newHeader(typeOpen), Version: Version, MyAS: MyAS,
 		HoldTime: HoldTime, BGPIdentifier: BGPIdentifier.To4(), Parameters: Parameters}
 }
@@ -114,16 +114,13 @@ func (m *OPEN) Len() int {
 // UPDATE holds the information used in the UPDATE message format. RFC 4271, section 4.3
 type UPDATE struct {
 	*Header
-	withdrawnRoutesLength uint16 // make implicit
-	WithdrawnRoutes       []Prefix
-	pathsLength           uint16 // make implicit
-	Paths                 []Path
-	ReachabilityInfo      []Prefix
+	WithdrawnRoutes  []Prefix
+	Paths            []Path
+	ReachabilityInfo []Prefix
 }
 
 // NewUPDATE returns an initialized UPDATE message.
 func NewUPDATE(WithdrawnRoutes []Prefix, Paths []Path, ReachabilityInfo []Prefix) *UPDATE {
-
 	return &UPDATE{Header: newHeader(typeUpdate),
 		WithdrawnRoutes: WithdrawnRoutes, Paths: Paths, ReachabilityInfo: ReachabilityInfo}
 }
@@ -158,6 +155,12 @@ type NOTIFICATION struct {
 	ErrorCode    uint8
 	ErrorSubcode uint8
 	Data         []byte
+}
+
+// NewNOTIFICATION returns an initialized NOTIFICATION message.
+func NewNOTIFICATION(errorCode, errorSubcode uint8, data []byte) *NOTIFICATION {
+	return &NOTIFICATION{Header: newHeader(typeNotification),
+		ErrorCode: errorCode, ErrorSubcode: errorSubcode, Data: data}
 }
 
 func (m *NOTIFICATION) Len() int { return headerLen + 2 + len(m.Data) }
