@@ -93,7 +93,7 @@ func (pa *PathAttr) unpack(buf []byte) (int, error) {
 	return 0, nil
 }
 
-// convert to wireformat.
+// pack converts a Parameter to wireformat.
 func (p *Parameter) pack(buf []byte) (int, error) {
 	if len(buf) < 3 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
@@ -109,7 +109,7 @@ func (p *Parameter) pack(buf []byte) (int, error) {
 	return 2 + len(p.Value), nil
 }
 
-// unpack converts the wireformat  back to a Parameter
+// unpack converts the wireformat back to a Parameter.
 func (p *Parameter) unpack(buf []byte) (int, error) {
 	if len(buf) < 3 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
@@ -130,7 +130,7 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 // handles the header of the message.
 func (m *OPEN) Pack(buf []byte) (int, error) {
 	if len(buf) < 29 || len(buf) < m.Len() { // 29 octets is minimum size.
-		return 0, fmt.Errorf("bgp: buffer size too small")
+		return 0, NewError(1, 2, "buffer size too small")
 	}
 
 	m.Length = uint16(m.Len())
@@ -179,7 +179,7 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 // Unpack returns the amount of bytes parsed or an error.
 func (m *OPEN) Unpack(buf []byte) (int, error) {
 	if len(buf) < int(m.Length) {
-		return 0, fmt.Errorf("bgp: buffer size too small")
+		return 0, NewError(1, 2, "buffer size too small")
 	}
 
 	offset := 0
@@ -215,6 +215,29 @@ func (m *OPEN) Unpack(buf []byte) (int, error) {
 		m.Parameters = append(m.Parameters, p)
 	}
 	return offset, nil
+}
+
+// Pack converts an KEEPALIVE mesasge to wire format.
+func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
+	if len(buf) < m.Len() {
+		return 0, NewError(1, 2, "buffer size too small")
+	}
+
+	m.Length = uint16(m.Len())
+	m.Type = typeKeepalive
+
+	n, err := m.Header.pack(buf)
+	if err != nil {
+		return n, err
+	}
+	return n, nil
+}
+
+// Unpack converts wire format in buf to an KEEPALIVE message.
+func (m *KEEPALIVE) Unpack(buf []byte) (int, error) {
+	// a noop because a KEEPALIVE is *just* the header and it should
+	// already parsed.
+	return 0, nil
 }
 
 // Unpack converts the wire format in buf to a BGP message. The first parsed
