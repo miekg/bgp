@@ -11,6 +11,7 @@ func (h *Header) pack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
+	// Marker.
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
 	buf[8], buf[9], buf[10], buf[11] = 0xff, 0xff, 0xff, 0xff
@@ -27,10 +28,8 @@ func (h *Header) unpack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
-	h.Marker[0], h.Marker[1], h.Marker[2], h.Marker[3] = buf[0], buf[1], buf[2], buf[3]
-	h.Marker[4], h.Marker[5], h.Marker[6], h.Marker[7] = buf[4], buf[5], buf[6], buf[7]
-	h.Marker[8], h.Marker[9], h.Marker[10], h.Marker[11] = buf[8], buf[9], buf[10], buf[11]
-	h.Marker[12], h.Marker[13], h.Marker[14], h.Marker[15] = buf[12], buf[13], buf[14], buf[15]
+	// skip the marker. TODO(miek): add checks for it
+
 
 	h.Length = binary.BigEndian.Uint16(buf[16:])
 

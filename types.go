@@ -4,7 +4,6 @@ import (
 	"net"
 )
 
-// The differerent type of messages.
 const (
 	_ = iota
 	typeOpen
@@ -14,8 +13,8 @@ const (
 	typeRouteRefresh // See RFC 2918
 
 	headerLen = 19
-	MaxSize   = 4096
-	Version   = 4
+	MaxSize   = 4096 // Maximum size of a BGP message.
+	Version   = 4    // Current defined version of BGP.
 )
 
 type Message interface {
@@ -26,25 +25,26 @@ type Message interface {
 }
 
 // Heeader is the fixed-side header for each BGP message. See
-// RFC 4271, section 4.1
+// RFC 4271, section 4.1. The marker is ommitted.
 type Header struct {
-	Marker [16]byte // MUST be all ones...
 	Length uint16
 	Type   uint8
 }
 
-func newHeader(typ int) *Header { return &Header{[16]byte{}, 0, uint8(typ)} }
+func newHeader(typ int) *Header { return &Header{0, uint8(typ)} }
 
-// Prefix wraps a net.IPNet.
 type Prefix net.IPNet
 
-// Mask returns the length in bits of the mask.
+// Mask returns the length of the mask in bits.
 func (p *Prefix) Size() int {
 	_, bits := p.Mask.Size()
 	return bits
 }
 
-// PathAttr Flags.
+// Len returns the length of prefix in bytes.
+func (p *Prefix) Len() int { return 1 + len(p.IP) }
+
+// Path Flags.
 const (
 	FlagOptional   = 1 << 8
 	FlagTransitive = 1 << 7
@@ -52,7 +52,7 @@ const (
 	FlagLength     = 1 << 5
 )
 
-// PathAttr Codes.
+// Path Codes.
 const (
 	_ = iota
 	Origin
@@ -67,8 +67,6 @@ const (
 type Path struct {
 	Flags uint8
 	Code  uint8
-	//If Flag.Length is set length can use 16 bits, otherwise we use 8 bits.
-	// Length uint8 or uint16
 	Value []byte
 }
 
@@ -80,10 +78,7 @@ func (p *Path) len() int {
 }
 
 type Parameter struct {
-	Type uint8
-
-	// parm length removed as it is len(Value).
-
+	Type  uint8
 	Value []byte
 }
 
@@ -119,9 +114,9 @@ func (m *OPEN) Len() int {
 // UPDATE holds the information used in the UPDATE message format. RFC 4271, section 4.3
 type UPDATE struct {
 	*Header
-	WithdrawnRoutesLength uint16 // make implicit
+	withdrawnRoutesLength uint16 // make implicit
 	WithdrawnRoutes       []Prefix
-	PathAttrsLength       uint16 // make implicit
+	pathAttrsLength       uint16 // make implicit
 	PathAttrs             []Path
 	ReachabilityInfo      []Prefix
 }
