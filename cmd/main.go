@@ -13,7 +13,7 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 
-	req := bgp.NewOPEN(10, 80, net.ParseIP("127.0.0.1").To4(), nil)
+	req := bgp.NewOPEN(10, 80, net.ParseIP("127.0.0.1"), nil)
 
 	log.Printf("%+v\n", req)
 

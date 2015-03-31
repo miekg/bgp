@@ -35,8 +35,6 @@ type Header struct {
 
 func newHeader(typ int) *Header { return &Header{[16]byte{}, 0, uint8(typ)} }
 
-// Use net.IPNet and friends. It's basically what we want and has supporting
-// functions.
 type LengthPrefix struct {
 	Length uint8 // Length in bits of Prefix.
 	Prefix net.IP
@@ -79,6 +77,9 @@ func (pa *PathAttr) len() int {
 
 type Parameter struct {
 	Type  uint8
+
+	// parm length removed as it is len(Value).
+
 	Value []byte
 }
 
@@ -139,6 +140,4 @@ type NOTIFICATION struct {
 	Data         []byte
 }
 
-func (m *NOTIFICATION) Len() int {
-	return headerLen + 2 + len(m.Data)
-}
+func (m *NOTIFICATION) Len() int { return headerLen + 2 + len(m.Data) }

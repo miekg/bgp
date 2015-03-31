@@ -71,6 +71,11 @@ func (lp *LengthPrefix) unpack(buf []byte) (int, error) {
 		lp.Prefix[i] = buf[1+i]
 	}
 	// now zero the last byte, otherwise there could be random crap in there.
+	if mod := lp.Length % 8; mod != 0 {
+		// wondering about dd
+		buf[2+mod] &= ^(0xFF >> mod)
+	}
+
 	return 1 + int(lp.Length/8), nil
 }
 
