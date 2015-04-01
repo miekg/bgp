@@ -3,7 +3,7 @@ package bgp
 import "net"
 
 // Do sends a bgp message to the connection conn and waits for a reply.
-// The reply message is returned or an error if one is encountered.
+// The reply message is returned or an error, if one is encountered.
 func Do(conn net.Conn, m Message) (Message, error) {
 	buf := make([]byte, m.Len(), MaxSize)
 

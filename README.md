@@ -6,17 +6,13 @@ BGP is a BGP-4 implementation in Go.
 
 ## RFCs
 
-* <http://www.rfc-editor.org/rfc/rfc4271.txt>
+* BGP Communities: <https://tools.ietf.org/html/rfc1997>
+* BGP-4: <https://tools.ietf.org/html/rfc4271>
 
 ## Notes
-
-client.Open - send open
-client.Update - send Update
-client.KeepAlive - etc.
 
 ## TODO
 
 * fix all error uses
-* make an actual client
 * create server infra ala net/http, godns
 * Not sure about Pack/Unpack names maybe Marshall/Unmarshall

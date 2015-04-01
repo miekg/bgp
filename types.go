@@ -45,7 +45,7 @@ func (p *Prefix) Size() int {
 // len returns the length of prefix in bytes.
 func (p *Prefix) len() int { return 1 + len(p.IP) }
 
-// Path Flags.
+// Attribute Flags.
 const (
 	FlagOptional   = 1 << 8
 	FlagTransitive = 1 << 7
@@ -53,7 +53,7 @@ const (
 	FlagLength     = 1 << 5
 )
 
-// Path Codes.
+// Attribute Codes.
 const (
 	_ = iota
 	Origin
@@ -65,19 +65,21 @@ const (
 	Aggregator
 )
 
-type Path struct {
+// Attr is used in the UPDATE message to set the path attribute(s).
+type Attr struct {
 	Flags uint8
 	Code  uint8
 	Value []byte
 }
 
-func (p *Path) len() int {
+func (p *Attr) len() int {
 	if p.Flags&FlagLength == FlagLength {
 		return 2 + 2 + len(p.Value)
 	}
 	return 2 + 1 + len(p.Value)
 }
 
+// Parameter is used in the OPEN message to negotiate options.
 type Parameter struct {
 	Type  uint8
 	Value []byte
@@ -115,14 +117,14 @@ func (m *OPEN) Len() int {
 type UPDATE struct {
 	*Header
 	WithdrawnRoutes  []Prefix
-	Paths            []Path
+	Attrs            []Attr
 	ReachabilityInfo []Prefix
 }
 
 // NewUPDATE returns an initialized UPDATE message.
-func NewUPDATE(WithdrawnRoutes []Prefix, Paths []Path, ReachabilityInfo []Prefix) *UPDATE {
+func NewUPDATE(WithdrawnRoutes []Prefix, Attrs []Attr, ReachabilityInfo []Prefix) *UPDATE {
 	return &UPDATE{Header: newHeader(typeUpdate),
-		WithdrawnRoutes: WithdrawnRoutes, Paths: Paths, ReachabilityInfo: ReachabilityInfo}
+		WithdrawnRoutes: WithdrawnRoutes, Attrs: Attrs, ReachabilityInfo: ReachabilityInfo}
 }
 
 func (m *UPDATE) Len() int {
@@ -130,7 +132,7 @@ func (m *UPDATE) Len() int {
 	for _, p := range m.WithdrawnRoutes {
 		l += p.len()
 	}
-	for _, p := range m.Paths {
+	for _, p := range m.Attrs {
 		l += p.len()
 	}
 	for _, p := range m.ReachabilityInfo {

@@ -78,7 +78,7 @@ func (p *Prefix) unpack(buf []byte) (int, error) {
 }
 
 // pack converts a Path to writeformat.
-func (p *Path) pack(buf []byte) (int, error) {
+func (p *Attr) pack(buf []byte) (int, error) {
 	if len(buf) < 4 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
 	}
@@ -93,7 +93,7 @@ func (p *Path) pack(buf []byte) (int, error) {
 }
 
 // unpack converts to a Path
-func (p *Path) unpack(buf []byte) (int, error) {
+func (p *Attr) unpack(buf []byte) (int, error) {
 	return 0, nil
 }
 
@@ -325,7 +325,7 @@ func (m *UPDATE) Pack(buf []byte) (int, error) {
 	binary.BigEndian.PutUint16(buf[wlengthOffset:], uint16(l))
 
 	plengthOffset := offset
-	for _, p := range m.Paths {
+	for _, p := range m.Attrs {
 		n, err := p.pack(buf[offset:])
 		if err != nil {
 			return offset, err
@@ -384,14 +384,14 @@ func (m *UPDATE) Unpack(buf []byte) (int, error) {
 
 	i = 0
 	for i < pLength {
-		p := Path{}
+		p := Attr{}
 		n, e := p.unpack(buf[i+offset:])
 		if e != nil {
 			return offset, e
 		}
 		i += n
 		offset += n
-		m.Paths = append(m.Paths, p)
+		m.Attrs = append(m.Attrs, p)
 	}
 
 	rLength := int(m.Length) - offset
