@@ -21,14 +21,6 @@ type PathHeader struct {
 	Code  uint8
 }
 
-func (*p PathHeader) Flags() uint8 {
-	return p.Flags
-}
-
-func (*p PathHeader) Code() uint8 {
-	return p.Code
-}
-
 // Communites implements RFC 1997 COMMUNITIES path attribute.
 type Community struct {
 	*PathHeader
