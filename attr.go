@@ -3,8 +3,7 @@ package bgp
 // Path Attributes
 type PathAttr interface {
 	Len() int
-	Flags() uint8
-	Code() uint8
+	Header() *PathHeader
 }
 
 // Path attribute flags.
@@ -19,35 +18,40 @@ const (
 // in common.
 type PathHeader struct {
 	Flags uint8
-	Code uint8
+	Code  uint8
+}
+
+func (*p PathHeader) Flags() uint8 {
+	return p.Flags
+}
+
+func (*p PathHeader) Code() uint8 {
+	return p.Code
 }
 
 // Communites implements RFC 1997 COMMUNITIES path attribute.
 type Community struct {
-	Flags uint8
-	Code uint8
+	*PathHeader
 	Value []uint32
 }
 
 // Origin implements the ORIGIN path attribute.
 type Origin struct {
-	Flags uint8
-	Code uint8
+	*PathHeader
 	Value uint8
 }
 
 // AsPath implements the AS_PATH path attribute.
 type AsPath struct {
-	Flags uint8
-	Code uint8
+	*PathHeader
 	Value []Path
 }
 
 // Path is used to encode the AS paths in the AsPath attribute
 type Path struct {
-	Type uint8 // Either AS_SET of AS_SEQUENCE
+	Type   uint8 // Either AS_SET of AS_SEQUENCE
 	Length uint8 // Number of AS numbers to follow
-	AS []uint16
+	AS     []uint16
 }
 
 // Define the constants used for well-known path attributes in BGP.
