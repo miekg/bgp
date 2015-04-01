@@ -45,24 +45,42 @@ func (p *Prefix) Size() int {
 // len returns the length of prefix in bytes.
 func (p *Prefix) len() int { return 1 + len(p.IP) }
 
-// Attribute Flags.
+// Define the constants used for well-known path attributes in BGP.
+const (
+	_ = iota
+	ORIGIN
+	AS_PATH
+	NEXT_HOP
+	MULTI_EXIT_DISC
+	LOCAL_PREF
+	ATOMIC_AGGREGATE
+	AGGREGATOR
+	COMMUNITIES
+)
+
+// Values used int the different path attributes.
+const (
+	// ORIGIN
+	IGP        = 0
+	EGP        = 1
+	INCOMPLETE = 2
+
+	// AS_PATH
+	AS_SET = 1
+	AS_SEQUENCE = 2
+
+	// COMMUNITIES Values
+	NO_EXPORT           = uint32(0xFFFFFF01)
+	NO_ADVERTISE        = uint32(0xFFFFFF02)
+	NO_EXPORT_SUBCONFED = uint32(0xFFFFFF03)
+)
+
+// Path attribute flags.
 const (
 	FlagOptional   = 1 << 8
 	FlagTransitive = 1 << 7
 	FlagPartial    = 1 << 6
 	FlagLength     = 1 << 5
-)
-
-// Attribute Codes.
-const (
-	_ = iota
-	Origin
-	ASPath
-	NextHop
-	MultiExitDisc
-	LocalPref
-	AtomicAggregate
-	Aggregator
 )
 
 // Attr is used in the UPDATE message to set the path attribute(s).
