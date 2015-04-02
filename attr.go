@@ -2,8 +2,9 @@ package bgp
 
 // Path Attributes
 type PathAttr interface {
-	Len() int
-	Header() *PathHeader
+	Len() int // Len returns the length of the path attribute in bytes when in wire format.
+	Pack([]byte) (int, error)   // Pack converts the path attribute to wire format.
+	Unpack([]byte) (int, error) // Unpack converts the path attribute from wire format.
 }
 
 // Path attribute flags.
@@ -14,11 +15,22 @@ const (
 	FlagLength     = 1 << 5
 )
 
-// PathHeader is the header each of the path attributes have
-// in common.
+// PathHeader is the header each of the path attributes have in common.
+// Note that the length is used in the wire format, but not specified here,
+// because it is implicitly encoding in the length of the Value.
 type PathHeader struct {
 	Flags uint8
 	Code  uint8
+}
+
+// ExtendedLength returns the number of bytes we should use
+// for the length by checking the FlagLength bit and adding
+// the two bytes for Flags and Code.
+func (p *PathHeader) Len() int {
+	if p.Flags&FlagLength == FlagLength {
+		return 2 + 2
+	}
+	return 1 + 2
 }
 
 // Communites implements RFC 1997 COMMUNITIES path attribute.
@@ -27,11 +39,15 @@ type Community struct {
 	Value []uint32
 }
 
+func (p *Community) Len() int { return p.PathHeader.Len() + 4*len(p.Value) }
+
 // Origin implements the ORIGIN path attribute.
 type Origin struct {
 	*PathHeader
 	Value uint8
 }
+
+func (p *Origin) Len() int { return p.PathHeader.Len() + 1 }
 
 // AsPath implements the AS_PATH path attribute.
 type AsPath struct {
@@ -41,9 +57,9 @@ type AsPath struct {
 
 // Path is used to encode the AS paths in the AsPath attribute
 type Path struct {
-	Type   uint8 // Either AS_SET of AS_SEQUENCE
-	Length uint8 // Number of AS numbers to follow
-	AS     []uint16
+	Type   uint8    // Either AS_SET of AS_SEQUENCE.
+	Length uint8    // Number of AS numbers to follow.
+	AS     []uint16 // The AS numbers.
 }
 
 // Define the constants used for well-known path attributes in BGP.
