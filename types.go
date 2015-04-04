@@ -6,13 +6,16 @@ import (
 
 const (
 	_ = iota
-	TypeOpen
-	TypeUpdate
-	TypeNotification
-	TypeKeepalive
-	TypeRouteRefresh // See RFC 2918
+
+	// The different types of messages.
+	Open
+	Update
+	Notification
+	Keepalive
+	RouteRefresh // See RFC 2918
 
 	headerLen = 19
+
 	MaxSize   = 4096 // Maximum size of a BGP message.
 	Version   = 4    // Current defined version of BGP.
 )
@@ -74,7 +77,7 @@ func (m *OPEN) Len() int {
 type UPDATE struct {
 	*Header
 	WithdrawnRoutes  []Prefix
-	Attrs            []Attr
+	PathAttrs        []PathAttr
 	ReachabilityInfo []Prefix
 }
 
@@ -83,8 +86,8 @@ func (m *UPDATE) Len() int {
 	for _, p := range m.WithdrawnRoutes {
 		l += p.len()
 	}
-	for _, p := range m.Attrs {
-		l += p.len()
+	for _, p := range m.PathAttrs {
+		l += p.Len()
 	}
 	for _, p := range m.ReachabilityInfo {
 		l += p.len()

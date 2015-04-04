@@ -75,28 +75,6 @@ func (p *Prefix) unpack(buf []byte) (int, error) {
 	return 1 + int(p.Size()/8), nil
 }
 
-// pack converts an Path to writeformat.
-// TODO(miek: remove
-func (p *Attr) pack(buf []byte) (int, error) {
-	if len(buf) < 4 {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
-	buf[0] = p.Flags
-	buf[1] = p.Code
-	if p.Flags&FlagLength == FlagLength {
-		binary.BigEndian.PutUint16(buf[2:], uint16(len(p.Value)))
-	} else {
-		buf[2] = uint8(len(p.Value))
-	}
-	return 0, nil
-}
-
-// unpack converts to a Path
-// TODO(miek): remove
-func (p *Attr) unpack(buf []byte) (int, error) {
-	return 0, nil
-}
-
 // pack converts a Parameter to wireformat.
 func (p *Parameter) pack(buf []byte) (int, error) {
 	if len(buf) < 3 {
@@ -133,7 +111,7 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 // Pack converts an OPEN message to wire format.
 func (m *OPEN) Pack(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
-	m.Type = TypeOpen // be sure we're encoding an OPEN message
+	m.Type = Open // be sure we're encoding an OPEN message
 
 	offset := 0
 
@@ -229,7 +207,7 @@ func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
 	}
 
 	m.Length = uint16(m.Len())
-	m.Type = TypeKeepalive
+	m.Type = Keepalive
 
 	n, err := m.Header.pack(buf)
 	if err != nil {
@@ -260,7 +238,7 @@ func (m *NOTIFICATION) Pack(buf []byte) (int, error) {
 	offset := 0
 
 	m.Length = uint16(m.Len())
-	m.Type = TypeNotification
+	m.Type = Notification
 
 	n, err := m.Header.pack(buf[offset:])
 	if err != nil {
@@ -309,11 +287,11 @@ func (m *NOTIFICATION) Unpack(buf []byte) (int, error) {
 	return offset, nil
 }
 
-// Pack converts an UPDATE message to wire format. Unlike Unpack, pack also handles
-// the header of the message.
+// Pack converts an UPDATE message to wire format.
+// Unpack returns the amount of bytes parsed or an error.
 func (m *UPDATE) Pack(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
-	m.Type = TypeUpdate
+	m.Type = Update
 
 	offset := 0
 	n, err := m.Header.pack(buf[offset:])
@@ -338,12 +316,12 @@ func (m *UPDATE) Pack(buf []byte) (int, error) {
 	binary.BigEndian.PutUint16(buf[wlengthOffset:], uint16(l))
 
 	plengthOffset := offset
-	for _, p := range m.Attrs {
-		n, err := p.pack(buf[offset:])
+	for _, p := range m.PathAttrs {
+		n, err := p.Pack(buf[offset:])
 		if err != nil {
 			return offset, err
 		}
-		l += p.len()
+		l += p.Len()
 		offset += n
 	}
 	binary.BigEndian.PutUint16(buf[plengthOffset:], uint16(l))
@@ -402,15 +380,37 @@ func (m *UPDATE) Unpack(buf []byte) (int, error) {
 	}
 
 	i = 0
+	var (
+		p PathAttr
+		e error
+		n int
+	)
 	for i < pLength {
-		p := Attr{}
-		n, e := p.unpack(buf[i+offset:])
-		if e != nil {
-			return offset, e
+		switch buf[i+offset+1] { //second byte has the type TODO(miek): should check if the access is valid
+		case ORIGIN:
+			p = new(Origin)
+			n, e = p.Unpack(buf[i+offset:])
+			if e != nil {
+				return offset, e
+			}
+		case AS_PATH:
+			p = new(AsPath)
+			n, e = p.Unpack(buf[i+offset:])
+			if e != nil {
+				return offset, e
+			}
+		case COMMUNITIES:
+			p = new(Community)
+			n, e = p.Unpack(buf[i+offset:])
+			if e != nil {
+				return offset, e
+			}
+		default:
+			// unknown
 		}
 		i += n
 		offset += n
-		m.Attrs = append(m.Attrs, p)
+		m.PathAttrs = append(m.PathAttrs, p)
 	}
 
 	rLength := int(m.Length) - offset
@@ -429,7 +429,6 @@ func (m *UPDATE) Unpack(buf []byte) (int, error) {
 		offset += n
 		m.ReachabilityInfo = append(m.ReachabilityInfo, r)
 	}
-
 	return offset, nil
 }
 
@@ -442,16 +441,16 @@ func Unpack(buf []byte) (m Message, n int, e error) {
 	}
 	// Byte 18 has the type.
 	switch buf[18] {
-	case TypeOpen:
+	case Open:
 		m = &OPEN{}
 		n, e = m.(*OPEN).Unpack(buf)
-	case TypeUpdate:
+	case Update:
 		m = &UPDATE{}
 		n, e = m.(*UPDATE).Unpack(buf)
-	case TypeNotification:
+	case Notification:
 		m = &NOTIFICATION{}
 		n, e = m.(*NOTIFICATION).Unpack(buf)
-	case TypeKeepalive:
+	case Keepalive:
 		m = &KEEPALIVE{}
 		n, e = m.(*KEEPALIVE).Unpack(buf)
 	default:

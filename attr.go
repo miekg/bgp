@@ -5,7 +5,39 @@ import (
 	"fmt"
 )
 
-// Path Attributes
+// Define the types used for well-known path attributes in an UPDATE message.
+const (
+	_ = iota
+	ORIGIN
+	AS_PATH
+	NEXT_HOP
+	MULTI_EXIT_DISC
+	LOCAL_PREF
+	ATOMIC_AGGREGATE
+	AGGREGATOR
+	COMMUNITIES
+)
+
+// Values used in a different path attribute.
+const (
+	// ORIGIN
+	IGP        = 0
+	EGP        = 1
+	INCOMPLETE = 2
+
+	// AS_PATH
+	AS_SET      = 1
+	AS_SEQUENCE = 2
+
+	// COMMUNITIES
+	NO_EXPORT           = uint32(0xFFFFFF01)
+	NO_ADVERTISE        = uint32(0xFFFFFF02)
+	NO_EXPORT_SUBCONFED = uint32(0xFFFFFF03)
+)
+
+const AS_TRANS = 23456
+
+// Path Attributes.
 type PathAttr interface {
 	Len() int                   // Len returns the length of the path attribute in bytes when in wire format.
 	Pack([]byte) (int, error)   // Pack converts the path attribute to wire format.
@@ -86,11 +118,11 @@ func (p *Community) Unpack(buf []byte) (int, error) {
 	if err != nil {
 		return offset, err
 	}
-	if len(buf) < p.Len() {
+	if len(buf) < int(p.Length) {
 		return 0, fmt.Errorf("buffer size too small")
 	}
 	p.Value = make([]uint32, 0)
-	for offset < p.Len() {
+	for offset < int(p.Length) {
 		p.Value = append(p.Value, binary.BigEndian.Uint32(buf[offset:]))
 		offset += 4
 	}
@@ -105,61 +137,84 @@ type Origin struct {
 
 func (p *Origin) Len() int { return p.PathHeader.Len() + 1 }
 
+func (p *Origin) Pack(buf []byte) (int, error) {
+	if len(buf) < p.Len() {
+		return 0, fmt.Errorf("buffer size too small")
+	}
+	offset, err := p.PathHeader.Pack(buf)
+	if err != nil {
+		return offset, err
+	}
+	buf[offset] = p.Value
+	return offset + 1, nil
+}
+
+func (p *Origin) Unpack(buf []byte) (int, error) {
+	offset, err := p.PathHeader.Unpack(buf)
+	if err != nil {
+		return offset, err
+	}
+	if len(buf) < int(p.Length) {
+		return 0, fmt.Errorf("buffer size too small")
+	}
+	p.Value = buf[offset]
+	return offset + 1, nil
+}
+
 // AsPath implements the AS_PATH path attribute.
 type AsPath struct {
 	*PathHeader
 	Value []Path
 }
 
+func (p *AsPath) Len() int {
+	l := p.PathHeader.Len()
+	for _, v := range p.Value {
+		l += v.len()
+	}
+	return l
+}
+
+func (p *AsPath) Pack(buf []byte) (int, error) {
+	return 0, nil
+}
+
+func (p *AsPath) Unpack(buf []byte) (int, error) {
+	return 0, nil
+}
+
 // Path is used to encode the AS paths in the AsPath attribute
 type Path struct {
-	Type   uint8    // Either AS_SET of AS_SEQUENCE.
-	Length uint8    // Number of AS numbers to follow.
-	AS     []uint32 // The AS numbers as 32 bit entities.
+	Type uint8    // Either AS_SET of AS_SEQUENCE.
+	AS   []uint32 // The AS numbers as 32 bit entities.
 }
 
-// Define the constants used for well-known path attributes in BGP.
-const (
-	_ = iota
-	ORIGIN
-	AS_PATH
-	NEXT_HOP
-	MULTI_EXIT_DISC
-	LOCAL_PREF
-	ATOMIC_AGGREGATE
-	AGGREGATOR
-	COMMUNITIES
-)
+func (p *Path) len() int { return 2 + 4*len(p.AS) }
 
-// Values used int the different path attributes.
-const (
-	// ORIGIN
-	IGP        = 0
-	EGP        = 1
-	INCOMPLETE = 2
+func (p *Path) pack(buf []byte) (int, error) {
+	buf[0] = p.Type
+	buf[1] = uint8(len(p.AS))
 
-	// AS_PATH
-	AS_SET      = 1
-	AS_SEQUENCE = 2
+	offset := 2
 
-	// COMMUNITIES Values
-	NO_EXPORT           = uint32(0xFFFFFF01)
-	NO_ADVERTISE        = uint32(0xFFFFFF02)
-	NO_EXPORT_SUBCONFED = uint32(0xFFFFFF03)
-
-	AS_TRANS = 23456
-)
-
-// Attr is used in the UPDATE message to set the path attribute(s).
-type Attr struct {
-	Flags uint8
-	Code  uint8
-	Value []byte
-}
-
-func (p *Attr) len() int {
-	if p.Flags&FlagLength == FlagLength {
-		return 2 + 2 + len(p.Value)
+	for _, a := range p.AS {
+		binary.BigEndian.PutUint32(buf[offset:], a)
+		offset += 4
 	}
-	return 2 + 1 + len(p.Value)
+	return offset, nil
+}
+
+func (p *Path) unpack(buf []byte) (int, error) {
+	p.Type = buf[0]
+
+	l := int(buf[1])
+	// TODO(miek): length checks here
+
+	offset := 2
+	p.AS = make([]uint32, 0)
+	for offset < 2+4*l {
+		p.AS = append(p.AS, binary.BigEndian.Uint32(buf[offset:]))
+		offset += 4
+	}
+	return offset, nil
 }
