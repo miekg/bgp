@@ -1,13 +1,15 @@
 package bgp
 
+import "encoding/binary"
+
 // Path Attributes
 type PathAttr interface {
-	Len() int // Len returns the length of the path attribute in bytes when in wire format.
+	Len() int                   // Len returns the length of the path attribute in bytes when in wire format.
 	Pack([]byte) (int, error)   // Pack converts the path attribute to wire format.
 	Unpack([]byte) (int, error) // Unpack converts the path attribute from wire format.
 }
 
-// Path attribute flags.
+// Path attribute header flags.
 const (
 	FlagOptional   = 1 << 8
 	FlagTransitive = 1 << 7
@@ -16,14 +18,13 @@ const (
 )
 
 // PathHeader is the header each of the path attributes have in common.
-// Note that the length is used in the wire format, but not specified here,
-// because it is implicitly encoding in the length of the Value.
 type PathHeader struct {
-	Flags uint8
-	Code  uint8
+	Flags  uint8
+	Code   uint8
+	Length uint16
 }
 
-// ExtendedLength returns the number of bytes we should use
+// Len returns the number of bytes we should use
 // for the length by checking the FlagLength bit and adding
 // the two bytes for Flags and Code.
 func (p *PathHeader) Len() int {
@@ -31,6 +32,28 @@ func (p *PathHeader) Len() int {
 		return 2 + 2
 	}
 	return 1 + 2
+}
+
+func (p *PathHeader) Pack(buf []byte) (int, error) {
+	buf[0] = p.Flags
+	buf[1] = p.Code
+	if p.Flags&FlagLength == FlagLength {
+		binary.BigEndian.PutUint16(buf[2:], uint16(p.Length))
+		return 4, nil
+	}
+	buf[2] = uint8(p.Length)
+	return 3, nil
+}
+
+func (p *PathHeader) Unpack(buf []byte) (int, error) {
+	p.Flags = buf[0]
+	p.Code = buf[1]
+	if p.Flags&FlagLength == FlagLength {
+		p.Length = binary.BigEndian.Uint16(buf[2:])
+		return 4, nil
+	}
+	p.Length = uint16(buf[2])
+	return 3, nil
 }
 
 // Communites implements RFC 1997 COMMUNITIES path attribute.
