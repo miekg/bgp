@@ -21,3 +21,6 @@ BGP is a BGP-4 implementation in Go.
 * create server infra ala net/http, godns
 * Fix Path Attributes, these are like dns RR's, define an interface
     and use reflection to pack/unpack.
+* Unpack doesn't do header, Pack does do header
+    Makes more sense if they *all* do or neither.
+* Tests!

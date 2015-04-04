@@ -6,7 +6,7 @@ import (
 	"net"
 )
 
-// pack converts a header into wireformat and stores the result in buf
+// pack converts a header into wireformat and stores the result in buf.
 func (h *Header) pack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
@@ -28,10 +28,8 @@ func (h *Header) unpack(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
-	// skip the marker. TODO(miek): add checks for it
-
+	// Just skip the marker.
 	h.Length = binary.BigEndian.Uint16(buf[16:])
-
 	h.Type = buf[18]
 	return 19, nil
 }
@@ -77,7 +75,8 @@ func (p *Prefix) unpack(buf []byte) (int, error) {
 	return 1 + int(p.Size()/8), nil
 }
 
-// pack converts a Path to writeformat.
+// pack converts an Path to writeformat.
+// TODO(miek: remove
 func (p *Attr) pack(buf []byte) (int, error) {
 	if len(buf) < 4 {
 		return 0, fmt.Errorf("bgp: buffer size too small")
@@ -93,6 +92,7 @@ func (p *Attr) pack(buf []byte) (int, error) {
 }
 
 // unpack converts to a Path
+// TODO(miek): remove
 func (p *Attr) unpack(buf []byte) (int, error) {
 	return 0, nil
 }
@@ -130,8 +130,7 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 	return 2 + length, nil
 }
 
-// Pack converts an OPEN message to wire format. Note that unlike Unpack, Pack also
-// handles the header of the message.
+// Pack converts an OPEN message to wire format.
 func (m *OPEN) Pack(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
 	m.Type = typeOpen // be sure we're encoding an OPEN message
@@ -175,15 +174,19 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 }
 
 // Unpack converts wire format in buf to an OPEN message.
-// The header should be already parsed and buf should start on the
-// beginning of the message. The header should also already be set in m.
 // Unpack returns the amount of bytes parsed or an error.
 func (m *OPEN) Unpack(buf []byte) (int, error) {
-	if len(buf) < int(m.Length)-headerLen {
-		return 0, NewError(2, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length-headerLen))
+	offset := 0
+
+	m.Header = new(Header)
+	offset, err := m.Header.unpack(buf)
+	if err != nil {
+		return offset, err
 	}
 
-	offset := 0
+	if len(buf) < int(m.Length) {
+		return 0, NewError(2, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length))
+	}
 
 	m.Version = buf[offset]
 	offset++
@@ -219,8 +222,7 @@ func (m *OPEN) Unpack(buf []byte) (int, error) {
 	return offset, nil
 }
 
-// Pack converts an KEEPALIVE mesasge to wire format. Unlike Unpack, pack also
-// handles the header of the message.
+// Pack converts an KEEPALIVE mesasge to wire format.
 func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
 	if len(buf) < m.Len() {
 		return 0, NewError(1, 2, "buffer size too small")
@@ -238,9 +240,14 @@ func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
 
 // Unpack converts wire format in buf to an KEEPALIVE message.
 func (m *KEEPALIVE) Unpack(buf []byte) (int, error) {
-	// a noop because a KEEPALIVE is *just* the header and it should
-	// already parsed.
-	return 0, nil
+	offset := 0
+
+	m.Header = new(Header)
+	offset, err := m.Header.unpack(buf)
+	if err != nil {
+		return offset, err
+	}
+	return offset, nil
 }
 
 // Pack converts an NOTIFICATION mesasge to wire format. Unlike Unpack, pack also
@@ -276,15 +283,21 @@ func (m *NOTIFICATION) Pack(buf []byte) (int, error) {
 }
 
 // Unpack converts wire format in buf to an NOTIFICATION message.
-// The header should be already parsed and buf should start on the
-// beginning of the message. The header should also already be set in m.
 // Unpack returns the amount of bytes parsed or an error.
 func (m *NOTIFICATION) Unpack(buf []byte) (int, error) {
-	if len(buf) < int(m.Length)-headerLen {
-		return 0, NewError(0, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length-headerLen))
+	offset := 0
+
+	m.Header = new(Header)
+	offset, err := m.Header.unpack(buf)
+	if err != nil {
+		return offset, err
 	}
 
-	offset := 0
+	if len(buf) < int(m.Length) {
+		return 0, NewError(0, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length))
+	}
+
+	offset = 0
 	m.ErrorCode = buf[offset]
 	offset++
 
@@ -348,15 +361,21 @@ func (m *UPDATE) Pack(buf []byte) (int, error) {
 }
 
 // Unpack converts wire format in buf to an UPDATE message.
-// The header should be already parsed and buf should start on the
-// beginning of the message. The header should also already be set in m.
 // Unpack returns the amount of bytes parsed or an error.
 func (m *UPDATE) Unpack(buf []byte) (int, error) {
-	if len(buf) < int(m.Length)-headerLen {
-		return 0, NewError(3, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length-headerLen))
+	offset := 0
+
+	m.Header = new(Header)
+	offset, err := m.Header.unpack(buf)
+	if err != nil {
+		return offset, err
 	}
 
-	offset := 0
+	if len(buf) < int(m.Length) {
+		return 0, NewError(3, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length))
+	}
+
+	offset = 0
 
 	wLength := int(binary.BigEndian.Uint16(buf[offset:]))
 	offset += 2
@@ -417,46 +436,31 @@ func (m *UPDATE) Unpack(buf []byte) (int, error) {
 // Unpack converts the wire format in buf to a BGP message. The first parsed
 // message is returned together with the new offset in buf. If the parsing
 // fails an error is returned.
-func Unpack(buf []byte) (Message, int, error) {
-	offset := 0
-
-	h := new(Header)
-	n, e := h.unpack(buf)
-	offset += n
-	if e != nil {
-		return nil, offset, e
+func Unpack(buf []byte) (m Message, n int, e error) {
+	if len(buf) < headerLen {
+		return nil, 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
-
-	switch h.Type {
+	// Byte 18 has the type.
+	switch buf[18] {
 	case typeOpen:
-		m := &OPEN{Header: h}
-		n, e = m.Unpack(buf[offset:])
-		offset += n
-		if e != nil {
-			return nil, offset, e
-		}
-		return m, offset, nil
+		m = &OPEN{}
+		n, e = m.(*OPEN).Unpack(buf)
 	case typeUpdate:
-		m := &UPDATE{Header: h}
-		n, e = m.Unpack(buf[offset:])
-		offset += n
-		if e != nil {
-			return nil, offset, e
-		}
-		return m, offset, nil
+		m = &UPDATE{}
+		n, e = m.(*UPDATE).Unpack(buf)
 	case typeNotification:
-		m := &NOTIFICATION{Header: h}
-		n, e = m.Unpack(buf[offset:])
-		offset += n
-		if e != nil {
-			return nil, offset, e
-		}
-		return m, offset, nil
+		m = &NOTIFICATION{}
+		n, e = m.(*NOTIFICATION).Unpack(buf)
 	case typeKeepalive:
-		m := &KEEPALIVE{Header: h}
-		return m, offset, nil
+		m = &KEEPALIVE{}
+		n, e = m.(*KEEPALIVE).Unpack(buf)
+	default:
+		return nil, 0, NewError(1, 3, fmt.Sprintf("bad type: %d", buf[18]))
 	}
-	return nil, n, NewError(1, 3, fmt.Sprintf("bad type: %d", h.Type))
+	if e != nil {
+		return nil, n, e
+	}
+	return m, n, nil
 }
 
 // Packs convert Message into wireformat and stores the result in buf. It
@@ -472,5 +476,5 @@ func Pack(buf []byte, m Message) (int, error) {
 	case *KEEPALIVE:
 		return x.Pack(buf)
 	}
-	return 0, NewError(1, 3, "")
+	return 0, NewError(1, 3, fmt.Sprintf("bad type: %T", m))
 }

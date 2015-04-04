@@ -1,6 +1,9 @@
 package bgp
 
-import "encoding/binary"
+import (
+	"encoding/binary"
+	"fmt"
+)
 
 // Path Attributes
 type PathAttr interface {
@@ -24,9 +27,8 @@ type PathHeader struct {
 	Length uint16
 }
 
-// Len returns the number of bytes we should use
-// for the length by checking the FlagLength bit and adding
-// the two bytes for Flags and Code.
+// Len returns the number of bytes we should use for the length by
+// checking the FlagLength bit and adding the two bytes for Flags and Code.
 func (p *PathHeader) Len() int {
 	if p.Flags&FlagLength == FlagLength {
 		return 2 + 2
@@ -56,13 +58,44 @@ func (p *PathHeader) Unpack(buf []byte) (int, error) {
 	return 3, nil
 }
 
-// Communites implements RFC 1997 COMMUNITIES path attribute.
+// Community implements RFC 1997 COMMUNITIES path attribute.
 type Community struct {
 	*PathHeader
 	Value []uint32
 }
 
 func (p *Community) Len() int { return p.PathHeader.Len() + 4*len(p.Value) }
+
+func (p *Community) Pack(buf []byte) (int, error) {
+	if len(buf) < p.Len() {
+		return 0, fmt.Errorf("buffer size too small")
+	}
+	offset, err := p.PathHeader.Pack(buf)
+	if err != nil {
+		return offset, err
+	}
+	for _, v := range p.Value {
+		binary.BigEndian.PutUint32(buf[offset:], v)
+		offset += 4
+	}
+	return offset, nil
+}
+
+func (p *Community) Unpack(buf []byte) (int, error) {
+	offset, err := p.PathHeader.Unpack(buf)
+	if err != nil {
+		return offset, err
+	}
+	if len(buf) < p.Len() {
+		return 0, fmt.Errorf("buffer size too small")
+	}
+	p.Value = make([]uint32, 0)
+	for offset < p.Len() {
+		p.Value = append(p.Value, binary.BigEndian.Uint32(buf[offset:]))
+		offset += 4
+	}
+	return offset, nil
+}
 
 // Origin implements the ORIGIN path attribute.
 type Origin struct {
