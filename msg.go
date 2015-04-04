@@ -133,7 +133,7 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 // Pack converts an OPEN message to wire format.
 func (m *OPEN) Pack(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
-	m.Type = typeOpen // be sure we're encoding an OPEN message
+	m.Type = TypeOpen // be sure we're encoding an OPEN message
 
 	offset := 0
 
@@ -229,7 +229,7 @@ func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
 	}
 
 	m.Length = uint16(m.Len())
-	m.Type = typeKeepalive
+	m.Type = TypeKeepalive
 
 	n, err := m.Header.pack(buf)
 	if err != nil {
@@ -260,7 +260,7 @@ func (m *NOTIFICATION) Pack(buf []byte) (int, error) {
 	offset := 0
 
 	m.Length = uint16(m.Len())
-	m.Type = typeNotification
+	m.Type = TypeNotification
 
 	n, err := m.Header.pack(buf[offset:])
 	if err != nil {
@@ -313,7 +313,7 @@ func (m *NOTIFICATION) Unpack(buf []byte) (int, error) {
 // the header of the message.
 func (m *UPDATE) Pack(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
-	m.Type = typeUpdate
+	m.Type = TypeUpdate
 
 	offset := 0
 	n, err := m.Header.pack(buf[offset:])
@@ -442,16 +442,16 @@ func Unpack(buf []byte) (m Message, n int, e error) {
 	}
 	// Byte 18 has the type.
 	switch buf[18] {
-	case typeOpen:
+	case TypeOpen:
 		m = &OPEN{}
 		n, e = m.(*OPEN).Unpack(buf)
-	case typeUpdate:
+	case TypeUpdate:
 		m = &UPDATE{}
 		n, e = m.(*UPDATE).Unpack(buf)
-	case typeNotification:
+	case TypeNotification:
 		m = &NOTIFICATION{}
 		n, e = m.(*NOTIFICATION).Unpack(buf)
-	case typeKeepalive:
+	case TypeKeepalive:
 		m = &KEEPALIVE{}
 		n, e = m.(*KEEPALIVE).Unpack(buf)
 	default:

@@ -6,11 +6,11 @@ import (
 
 const (
 	_ = iota
-	typeOpen
-	typeUpdate
-	typeNotification
-	typeKeepalive
-	typeRouteRefresh // See RFC 2918
+	TypeOpen
+	TypeUpdate
+	TypeNotification
+	TypeKeepalive
+	TypeRouteRefresh // See RFC 2918
 
 	headerLen = 19
 	MaxSize   = 4096 // Maximum size of a BGP message.
