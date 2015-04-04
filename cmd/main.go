@@ -13,7 +13,8 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 
-	req := bgp.NewOPEN(10, 80, net.ParseIP("127.0.0.1"), nil)
+	req := &OPEN{Header: &bgp.Header{Type: typeOpen}, Version: bgp.Version, MyAS: 10,
+		HoldTime: 80, BGPIdentifier: net.ParseIP("127.0.0.1").To4(), Parameters: nil}
 
 	log.Printf("%+v\n", req)
 

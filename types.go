@@ -32,8 +32,6 @@ type Header struct {
 	Type   uint8
 }
 
-func newHeader(typ int) *Header { return &Header{0, uint8(typ)} }
-
 type Prefix net.IPNet
 
 // Size returns the length of the mask in bits.
@@ -63,12 +61,6 @@ type OPEN struct {
 	Parameters    []Parameter
 }
 
-// NewOPEN returns an initialized OPEN message.
-func NewOPEN(MyAS, HoldTime uint16, BGPIdentifier net.IP, Parameters []Parameter) *OPEN {
-	return &OPEN{Header: newHeader(typeOpen), Version: Version, MyAS: MyAS,
-		HoldTime: HoldTime, BGPIdentifier: BGPIdentifier.To4(), Parameters: Parameters}
-}
-
 // Len returns the length of the entire OPEN message.
 // When called is also sets the length in m.Length.
 func (m *OPEN) Len() int {
@@ -85,12 +77,6 @@ type UPDATE struct {
 	WithdrawnRoutes  []Prefix
 	Attrs            []Attr
 	ReachabilityInfo []Prefix
-}
-
-// NewUPDATE returns an initialized UPDATE message.
-func NewUPDATE(WithdrawnRoutes []Prefix, Attrs []Attr, ReachabilityInfo []Prefix) *UPDATE {
-	return &UPDATE{Header: newHeader(typeUpdate),
-		WithdrawnRoutes: WithdrawnRoutes, Attrs: Attrs, ReachabilityInfo: ReachabilityInfo}
 }
 
 func (m *UPDATE) Len() int {
@@ -113,8 +99,6 @@ type KEEPALIVE struct {
 	*Header
 }
 
-// NewKEEPALIVE returns an initialized KEEPALIVE message.
-func NewKEEPALIVE() *KEEPALIVE { return &KEEPALIVE{Header: newHeader(typeKeepalive)} }
 func (m *KEEPALIVE) Len() int  { return headerLen }
 
 // NOTIFICATION holds an error. The TCP connection is closed after sending it.
@@ -123,12 +107,6 @@ type NOTIFICATION struct {
 	ErrorCode    uint8
 	ErrorSubcode uint8
 	Data         []byte
-}
-
-// NewNOTIFICATION returns an initialized NOTIFICATION message.
-func NewNOTIFICATION(errorCode, errorSubcode uint8, data []byte) *NOTIFICATION {
-	return &NOTIFICATION{Header: newHeader(typeNotification),
-		ErrorCode: errorCode, ErrorSubcode: errorSubcode, Data: data}
 }
 
 func (m *NOTIFICATION) Len() int { return headerLen + 2 + len(m.Data) }
