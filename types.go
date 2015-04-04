@@ -55,14 +55,13 @@ func (p *Parameter) len() int { return 2 + len(p.Value) }
 type OPEN struct {
 	*Header
 	Version       uint8
-	MyAS          uint16
+	MyAS          uint16 // AS_TRANS usaully.
 	HoldTime      uint16
 	BGPIdentifier net.IP // Must always be a 4 bytes.
 	Parameters    []Parameter
 }
 
 // Len returns the length of the entire OPEN message.
-// When called is also sets the length in m.Length.
 func (m *OPEN) Len() int {
 	l := 0
 	for _, p := range m.Parameters {
@@ -99,7 +98,7 @@ type KEEPALIVE struct {
 	*Header
 }
 
-func (m *KEEPALIVE) Len() int  { return headerLen }
+func (m *KEEPALIVE) Len() int { return headerLen }
 
 // NOTIFICATION holds an error. The TCP connection is closed after sending it.
 type NOTIFICATION struct {

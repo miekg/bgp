@@ -115,7 +115,7 @@ type AsPath struct {
 type Path struct {
 	Type   uint8    // Either AS_SET of AS_SEQUENCE.
 	Length uint8    // Number of AS numbers to follow.
-	AS     []uint16 // The AS numbers.
+	AS     []uint32 // The AS numbers as 32 bit entities.
 }
 
 // Define the constants used for well-known path attributes in BGP.
@@ -146,6 +146,8 @@ const (
 	NO_EXPORT           = uint32(0xFFFFFF01)
 	NO_ADVERTISE        = uint32(0xFFFFFF02)
 	NO_EXPORT_SUBCONFED = uint32(0xFFFFFF03)
+
+	AS_TRANS = 23456
 )
 
 // Attr is used in the UPDATE message to set the path attribute(s).
