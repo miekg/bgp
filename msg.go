@@ -109,9 +109,9 @@ func (p *Parameter) unpack(buf []byte) (int, error) {
 }
 
 // Pack converts an OPEN message to wire format.
-func (m *OPEN) Pack(buf []byte) (int, error) {
+func (m *Open) Pack(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
-	m.Type = Open // be sure we're encoding an OPEN message
+	m.Type = OPEN // be sure we're encoding an OPEN message
 
 	offset := 0
 
@@ -153,7 +153,7 @@ func (m *OPEN) Pack(buf []byte) (int, error) {
 
 // Unpack converts wire format in buf to an OPEN message.
 // Unpack returns the amount of bytes parsed or an error.
-func (m *OPEN) Unpack(buf []byte) (int, error) {
+func (m *Open) Unpack(buf []byte) (int, error) {
 	offset := 0
 
 	m.Header = new(Header)
@@ -201,13 +201,13 @@ func (m *OPEN) Unpack(buf []byte) (int, error) {
 }
 
 // Pack converts an KEEPALIVE mesasge to wire format.
-func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
+func (m *Keepalive) Pack(buf []byte) (int, error) {
 	if len(buf) < m.Len() {
 		return 0, NewError(1, 2, "buffer size too small")
 	}
 
 	m.Length = uint16(m.Len())
-	m.Type = Keepalive
+	m.Type = KEEPALIVE
 
 	n, err := m.Header.pack(buf)
 	if err != nil {
@@ -217,7 +217,7 @@ func (m *KEEPALIVE) Pack(buf []byte) (int, error) {
 }
 
 // Unpack converts wire format in buf to an KEEPALIVE message.
-func (m *KEEPALIVE) Unpack(buf []byte) (int, error) {
+func (m *Keepalive) Unpack(buf []byte) (int, error) {
 	offset := 0
 
 	m.Header = new(Header)
@@ -230,7 +230,7 @@ func (m *KEEPALIVE) Unpack(buf []byte) (int, error) {
 
 // Pack converts an NOTIFICATION mesasge to wire format. Unlike Unpack, pack also
 // handles the header of the message.
-func (m *NOTIFICATION) Pack(buf []byte) (int, error) {
+func (m *Notification) Pack(buf []byte) (int, error) {
 	if len(buf) < m.Len() {
 		return 0, NewError(1, 2, "buffer size too small")
 	}
@@ -238,7 +238,7 @@ func (m *NOTIFICATION) Pack(buf []byte) (int, error) {
 	offset := 0
 
 	m.Length = uint16(m.Len())
-	m.Type = Notification
+	m.Type = NOTIFICATION
 
 	n, err := m.Header.pack(buf[offset:])
 	if err != nil {
@@ -262,7 +262,7 @@ func (m *NOTIFICATION) Pack(buf []byte) (int, error) {
 
 // Unpack converts wire format in buf to an NOTIFICATION message.
 // Unpack returns the amount of bytes parsed or an error.
-func (m *NOTIFICATION) Unpack(buf []byte) (int, error) {
+func (m *Notification) Unpack(buf []byte) (int, error) {
 	offset := 0
 
 	m.Header = new(Header)
@@ -289,9 +289,9 @@ func (m *NOTIFICATION) Unpack(buf []byte) (int, error) {
 
 // Pack converts an UPDATE message to wire format.
 // Unpack returns the amount of bytes parsed or an error.
-func (m *UPDATE) Pack(buf []byte) (int, error) {
+func (m *Update) Pack(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
-	m.Type = Update
+	m.Type = UPDATE
 
 	offset := 0
 	n, err := m.Header.pack(buf[offset:])
@@ -340,7 +340,7 @@ func (m *UPDATE) Pack(buf []byte) (int, error) {
 
 // Unpack converts wire format in buf to an UPDATE message.
 // Unpack returns the amount of bytes parsed or an error.
-func (m *UPDATE) Unpack(buf []byte) (int, error) {
+func (m *Update) Unpack(buf []byte) (int, error) {
 	offset := 0
 
 	m.Header = new(Header)
@@ -441,18 +441,18 @@ func Unpack(buf []byte) (m Message, n int, e error) {
 	}
 	// Byte 18 has the type.
 	switch buf[18] {
-	case Open:
-		m = &OPEN{}
-		n, e = m.(*OPEN).Unpack(buf)
-	case Update:
-		m = &UPDATE{}
-		n, e = m.(*UPDATE).Unpack(buf)
-	case Notification:
-		m = &NOTIFICATION{}
-		n, e = m.(*NOTIFICATION).Unpack(buf)
-	case Keepalive:
-		m = &KEEPALIVE{}
-		n, e = m.(*KEEPALIVE).Unpack(buf)
+	case OPEN:
+		m = &Open{}
+		n, e = m.(*Open).Unpack(buf)
+	case UPDATE:
+		m = &Update{}
+		n, e = m.(*Update).Unpack(buf)
+	case NOTIFICATION:
+		m = &Notification{}
+		n, e = m.(*Notification).Unpack(buf)
+	case KEEPALIVE:
+		m = &Keepalive{}
+		n, e = m.(*Keepalive).Unpack(buf)
 	default:
 		return nil, 0, NewError(1, 3, fmt.Sprintf("bad type: %d", buf[18]))
 	}
@@ -466,13 +466,13 @@ func Unpack(buf []byte) (m Message, n int, e error) {
 // returns the new offset in buf or an error.
 func Pack(buf []byte, m Message) (int, error) {
 	switch x := m.(type) {
-	case *OPEN:
+	case *Open:
 		return x.Pack(buf)
-	case *UPDATE:
+	case *Update:
 		return x.Pack(buf)
-	case *NOTIFICATION:
+	case *Notification:
 		return x.Pack(buf)
-	case *KEEPALIVE:
+	case *Keepalive:
 		return x.Pack(buf)
 	}
 	return 0, NewError(1, 3, fmt.Sprintf("bad type: %T", m))

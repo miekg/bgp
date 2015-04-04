@@ -8,16 +8,16 @@ const (
 	_ = iota
 
 	// The different types of messages.
-	Open
-	Update
-	Notification
-	Keepalive
-	RouteRefresh // See RFC 2918
+	OPEN
+	UPDATE
+	NOTIFICATION
+	KEEPALIVE
+	ROUTErEFRESH // See RFC 2918
 
 	headerLen = 19
 
-	MaxSize   = 4096 // Maximum size of a BGP message.
-	Version   = 4    // Current defined version of BGP.
+	MaxSize = 4096 // Maximum size of a BGP message.
+	Version = 4    // Current defined version of BGP.
 )
 
 // TODO(miek): finalize this
@@ -54,8 +54,8 @@ type Parameter struct {
 
 func (p *Parameter) len() int { return 2 + len(p.Value) }
 
-// OPEN holds the information used in the OPEN message format. RFC 4271, Section 4.2.
-type OPEN struct {
+// Open holds the information used in the OPEN message format. RFC 4271, Section 4.2.
+type Open struct {
 	*Header
 	Version       uint8
 	MyAS          uint16 // AS_TRANS usaully.
@@ -65,7 +65,7 @@ type OPEN struct {
 }
 
 // Len returns the length of the entire OPEN message.
-func (m *OPEN) Len() int {
+func (m *Open) Len() int {
 	l := 0
 	for _, p := range m.Parameters {
 		l += p.len()
@@ -73,15 +73,15 @@ func (m *OPEN) Len() int {
 	return headerLen + 10 + l
 }
 
-// UPDATE holds the information used in the UPDATE message format. RFC 4271, section 4.3
-type UPDATE struct {
+// Update holds the information used in the UPDATE message format. RFC 4271, section 4.3
+type Update struct {
 	*Header
 	WithdrawnRoutes  []Prefix
 	PathAttrs        []PathAttr
 	ReachabilityInfo []Prefix
 }
 
-func (m *UPDATE) Len() int {
+func (m *Update) Len() int {
 	l := 0
 	for _, p := range m.WithdrawnRoutes {
 		l += p.len()
@@ -96,19 +96,19 @@ func (m *UPDATE) Len() int {
 	return headerLen + 4 + l
 }
 
-// KEEPALIVE holds only the header and is used for keep alive pings.
-type KEEPALIVE struct {
+// Keepalive holds only the header and is used for keep alive pings.
+type Keepalive struct {
 	*Header
 }
 
-func (m *KEEPALIVE) Len() int { return headerLen }
+func (m *Keepalive) Len() int { return headerLen }
 
-// NOTIFICATION holds an error. The TCP connection is closed after sending it.
-type NOTIFICATION struct {
+// Notification holds an error. The TCP connection is closed after sending it.
+type Notification struct {
 	*Header
 	ErrorCode    uint8
 	ErrorSubcode uint8
 	Data         []byte
 }
 
-func (m *NOTIFICATION) Len() int { return headerLen + 2 + len(m.Data) }
+func (m *Notification) Len() int { return headerLen + 2 + len(m.Data) }
