@@ -67,6 +67,7 @@ var errorSubcodesOpen = map[int]string{
 	4: "unsupported optional parameter",
 	// 5 deprecated
 	6: "unacceptable hold time",
+	7: "unsupported capability",
 }
 
 var errorSubcodesUpdate = map[int]string{

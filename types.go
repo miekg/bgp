@@ -28,13 +28,14 @@ type Message interface {
 	Len() int
 }
 
-// Header is the fixed-side header for each BGP message. See
-// RFC 4271, section 4.1. The marker is omitted.
+// Header is the fixed-side header for each BGP message. See RFC 4271, section 4.1.
+// The marker is omitted.
 type Header struct {
 	Length uint16
 	Type   uint8
 }
 
+// Prefix is used as the (Length, Prefix) tuple in Update messages.
 type Prefix net.IPNet
 
 // Size returns the length of the mask in bits.
@@ -45,14 +46,6 @@ func (p *Prefix) Size() int {
 
 // len returns the length of prefix in bytes.
 func (p *Prefix) len() int { return 1 + len(p.IP) }
-
-// Parameter is used in the OPEN message to negotiate options.
-type Parameter struct {
-	Type  uint8
-	Value []byte
-}
-
-func (p *Parameter) len() int { return 2 + len(p.Value) }
 
 // Open holds the information used in the OPEN message format. RFC 4271, Section 4.2.
 type Open struct {

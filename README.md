@@ -6,11 +6,13 @@ BGP is a BGP-4 implementation in Go.
 
 ## RFCs
 
-* BGP-4: <https://tools.ietf.org/html/rfc4271>
 * BGP Communities: <https://tools.ietf.org/html/rfc1997>
+* Capabilities Advertisement with BGP-4: <https://tools.ietf.org/html/rfc3392>
+* BGP-4: <https://tools.ietf.org/html/rfc4271>
 * BGP Extended Communities: <https://tools.ietf.org/html/rfc4360>
 * BGP 32 bit AS numbers: <https://tools.ietf.org/html/rfc4893>
 * BGP 32 bit AS numbers: <https://tools.ietf.org/html/rfc6793>
+
 
 ## Notes
 

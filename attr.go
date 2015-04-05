@@ -1,11 +1,14 @@
 package bgp
 
+// Path attributes, as used in the Update message.
+
 import (
 	"encoding/binary"
 	"fmt"
+	"net"
 )
 
-// Define the types used for well-known path attributes in an UPDATE message.
+// Define the types used for well-known path attributes in an Update message.
 const (
 	_ = iota
 	ORIGIN
@@ -18,7 +21,7 @@ const (
 	COMMUNITIES
 )
 
-// Values used in a different path attribute.
+// Values used in the well-known path attributes.
 const (
 	// ORIGIN
 	IGP        = 0
@@ -37,7 +40,7 @@ const (
 
 const AS_TRANS = 23456
 
-// Path Attributes.
+// PathAttr is the interface all path attributes should implement.
 type PathAttr interface {
 	Len() int                   // Len returns the length of the path attribute in bytes when in wire format.
 	Pack([]byte) (int, error)   // Pack converts the path attribute to wire format.
@@ -217,4 +220,19 @@ func (p *Path) unpack(buf []byte) (int, error) {
 		offset += 4
 	}
 	return offset, nil
+}
+
+type NextHop struct {
+	*PathHeader
+	Value net.IP
+}
+
+func (p *NextHop) Len() int { return p.PathHeader.Len() + len(p.Value) }
+
+func (p *NextHop) Pack(buf []byte) (int, error) {
+	return 0, nil
+}
+
+func (p *NextHop) Unpack(buf []byte) (int, error) {
+	return 0, nil
 }
