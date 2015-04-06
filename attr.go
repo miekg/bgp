@@ -84,15 +84,15 @@ func (p *pathHeader) Bytes(buf []byte) int {
 }
 
 // Allow value to write to buf bytes, which should be 4 octets max.
-func (p *pathHeader) SetBytes(buf []byte) int {
+func (p *pathHeader) SetBytes(buf []byte) (int, error) {
 	p.Flags = buf[0]
 	p.Code = buf[1]
 	if p.Flags&FlagLength == FlagLength {
 		p.Length = binary.BigEndian.Uint16(buf[2:])
-		return 4
+		return 4, nil
 	}
 	p.Length = uint16(buf[2])
-	return 3
+	return 3, nil
 }
 
 // Community implements RFC 1997 COMMUNITIES path attribute.
@@ -115,7 +115,10 @@ func (p *Community) Bytes() []byte {
 }
 
 func (p *Community) SetBytes(buf []byte) (int, error) {
-	offset := p.pathHeader.SetBytes(buf)
+	offset, err := p.pathHeader.SetBytes(buf)
+	if err != nil {
+		return offset, err
+	}
 
 	p.Value = make([]uint32, 0)
 	for offset < int(p.Length) {
@@ -142,7 +145,10 @@ func (p *Origin) Bytes() []byte {
 }
 
 func (p *Origin) SetBytes(buf []byte) (int, error) {
-	offset := p.pathHeader.SetBytes(buf)
+	offset, err := p.pathHeader.SetBytes(buf)
+	if err != nil {
+		return offset, err
+	}
 	p.Value = buf[offset]
 	return offset + 1, nil
 }

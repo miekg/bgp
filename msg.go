@@ -13,7 +13,11 @@ type Header struct {
 	Type   uint8
 }
 
-func (h *Header) SetBytes(buf []byte) int {
+func (h *Header) SetBytes(buf []byte) (int, error) {
+	if len(buf) < headerLen {
+		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
+	}
+
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
 	buf[8], buf[9], buf[10], buf[11] = 0xff, 0xff, 0xff, 0xff
@@ -22,7 +26,7 @@ func (h *Header) SetBytes(buf []byte) int {
 	binary.BigEndian.PutUint16(buf[16:], h.Length)
 
 	buf[18] = h.Type
-	return 19
+	return 19, nil
 }
 
 func (h *Header) Bytes(buf []byte) int {
@@ -81,29 +85,21 @@ func (m *Open) Bytes() []byte {
 	offset += 4
 
 	// Save for parameter length
-	plengthOffset := offset
+	buf[offset] = uint8(m.Len() - offset)
 	offset++
 
-	l := 0
 	for _, p := range m.Parameters {
-		n, err := p.pack(buf[offset:])
-		if err != nil {
-			return offset, err
-		}
-		l += p.len()
-		offset += n
+		// Hmm, copying the over. Suffice for now.
+		pbuf := p.Bytes()
+		copy(buf[offset:], pbuf)
+		offset += p.Len()
 	}
-	buf[plengthOffset] = byte(l)
-	return offset, nil
+	return buf
 }
 
-// Unpack converts wire format in buf to an OPEN message.
-// Unpack returns the amount of bytes parsed or an error.
-func (m *Open) Unpack(buf []byte) (int, error) {
-	offset := 0
-
+func (m *Open) SetBytes(buf []byte) (int, error) {
 	m.Header = new(Header)
-	offset, err := m.Header.unpack(buf)
+	offset, err := m.Header.SetBytes(buf)
 	if err != nil {
 		return offset, err
 	}
@@ -135,7 +131,7 @@ func (m *Open) Unpack(buf []byte) (int, error) {
 	i := 0
 	for i < pLength {
 		p := Parameter{}
-		n, e := p.unpack(buf[i+offset:])
+		n, e := p.SetBytes(buf[i+offset:])
 		if e != nil {
 			return offset, e
 		}
@@ -146,51 +142,35 @@ func (m *Open) Unpack(buf []byte) (int, error) {
 	return offset, nil
 }
 
-// Pack converts an KEEPALIVE mesasge to wire format.
-func (m *Keepalive) Pack(buf []byte) (int, error) {
-	if len(buf) < m.Len() {
-		return 0, NewError(1, 2, "buffer size too small")
-	}
+func (m *Keepalive) Bytes() []byte {
+	buf := make([]byte, m.Len())
 
 	m.Length = uint16(m.Len())
 	m.Type = KEEPALIVE
 
-	n, err := m.Header.pack(buf)
-	if err != nil {
-		return n, err
-	}
-	return n, nil
+	m.Header.Bytes(buf)
+	return buf
 }
 
-// Unpack converts wire format in buf to an KEEPALIVE message.
-func (m *Keepalive) Unpack(buf []byte) (int, error) {
+func (m *Keepalive) SetBytes(buf []byte) (int, error) {
 	offset := 0
 
 	m.Header = new(Header)
-	offset, err := m.Header.unpack(buf)
+	offset, err := m.Header.SetBytes(buf)
 	if err != nil {
 		return offset, err
 	}
 	return offset, nil
 }
 
-// Pack converts an NOTIFICATION mesasge to wire format. Unlike Unpack, pack also
-// handles the header of the message.
-func (m *Notification) Pack(buf []byte) (int, error) {
-	if len(buf) < m.Len() {
-		return 0, NewError(1, 2, "buffer size too small")
-	}
-
-	offset := 0
+func (m *Notification) Bytes() []byte {
+	buf := make([]byte, m.Len())
 
 	m.Length = uint16(m.Len())
 	m.Type = NOTIFICATION
 
-	n, err := m.Header.pack(buf[offset:])
-	if err != nil {
-		return offset, err
-	}
-	offset += n
+	n := m.Header.Bytes(buf)
+	offset := n
 
 	buf[offset] = m.ErrorCode
 	offset++
@@ -198,21 +178,15 @@ func (m *Notification) Pack(buf []byte) (int, error) {
 	buf[offset] = m.ErrorSubcode
 	offset++
 
-	for i := 0; i < len(m.Data); i++ {
-		buf[offset+i] = m.Data[i]
-	}
-	offset += len(m.Data)
-
-	return offset, nil
+	copy(buf[offset:], m.Data)
+	return buf
 }
 
-// Unpack converts wire format in buf to an NOTIFICATION message.
-// Unpack returns the amount of bytes parsed or an error.
-func (m *Notification) Unpack(buf []byte) (int, error) {
+func (m *Notification) SetBytes(buf []byte) (int, error) {
 	offset := 0
 
 	m.Header = new(Header)
-	offset, err := m.Header.unpack(buf)
+	offset, err := m.Header.SetBytes(buf)
 	if err != nil {
 		return offset, err
 	}
@@ -233,14 +207,12 @@ func (m *Notification) Unpack(buf []byte) (int, error) {
 	return offset, nil
 }
 
-// Pack converts an UPDATE message to wire format.
-// Unpack returns the amount of bytes parsed or an error.
-func (m *Update) Pack(buf []byte) (int, error) {
+func (m *Update) SetBytes(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
 	m.Type = UPDATE
 
 	offset := 0
-	n, err := m.Header.pack(buf[offset:])
+	n, err := m.Header.SetBytes(buf[offset:])
 	if err != nil {
 		return offset, err
 	}
