@@ -4,7 +4,6 @@ package bgp
 
 import (
 	"encoding/binary"
-	"fmt"
 	"net"
 )
 
@@ -40,11 +39,13 @@ const (
 
 const AS_TRANS = 23456
 
-// PathAttr is the interface all path attributes should implement.
-type PathAttr interface {
-	Len() int                   // Len returns the length of the path attribute in bytes when in wire format.
-	Pack([]byte) (int, error)   // Pack converts the path attribute to wire format.
-	Unpack([]byte) (int, error) // Unpack converts the path attribute from wire format.
+// TLV (Type-Length-Value) is a typical BGP construction that is used in messages.
+type TLV interface {
+	Type() int                    // Type returns the type of the TLV.
+	SetType(t int)                // SetType sets the type of the TLV.
+	Len() int                     // Len returns the length of the TLV bytes when in wire format.
+	Bytes() []byte                // Bytes return the bytes of the value in wire format.
+	SetBytes([]byte) (int, error) // SetBytes sets the value of the TLV, the bytes must be in network order.
 }
 
 // Path attribute header flags.
@@ -55,75 +56,67 @@ const (
 	FlagLength     = 1 << 5
 )
 
-// PathHeader is the header each of the path attributes have in common.
-type PathHeader struct {
+// pathHeader is the header each of the path attributes have in common.
+type pathHeader struct {
 	Flags  uint8
 	Code   uint8
-	Length uint16
+	Length uint16 // Length is either stored with 8 or 16 bits.
 }
 
-// Len returns the number of bytes we should use for the length by
-// checking the FlagLength bit and adding the two bytes for Flags and Code.
-func (p *PathHeader) Len() int {
+func (p *pathHeader) Type() uint8 { return p.Code }
+
+func (p *pathHeader) Len() int {
 	if p.Flags&FlagLength == FlagLength {
 		return 2 + 2
 	}
 	return 1 + 2
 }
 
-func (p *PathHeader) Pack(buf []byte) (int, error) {
+func (p *pathHeader) Bytes(buf []byte) int {
 	buf[0] = p.Flags
 	buf[1] = p.Code
 	if p.Flags&FlagLength == FlagLength {
 		binary.BigEndian.PutUint16(buf[2:], uint16(p.Length))
-		return 4, nil
+		return 4
 	}
 	buf[2] = uint8(p.Length)
-	return 3, nil
+	return 3
 }
 
-func (p *PathHeader) Unpack(buf []byte) (int, error) {
+// Allow value to write to buf bytes, which should be 4 octets max.
+func (p *pathHeader) SetBytes(buf []byte) int {
 	p.Flags = buf[0]
 	p.Code = buf[1]
 	if p.Flags&FlagLength == FlagLength {
 		p.Length = binary.BigEndian.Uint16(buf[2:])
-		return 4, nil
+		return 4
 	}
 	p.Length = uint16(buf[2])
-	return 3, nil
+	return 3
 }
 
 // Community implements RFC 1997 COMMUNITIES path attribute.
 type Community struct {
-	*PathHeader
+	*pathHeader
 	Value []uint32
 }
 
-func (p *Community) Len() int { return p.PathHeader.Len() + 4*len(p.Value) }
+func (p *Community) Type() int { return p.Type() }
+func (p *Community) Len() int  { return p.pathHeader.Len() + 4*len(p.Value) }
 
-func (p *Community) Pack(buf []byte) (int, error) {
-	if len(buf) < p.Len() {
-		return 0, fmt.Errorf("buffer size too small")
-	}
-	offset, err := p.PathHeader.Pack(buf)
-	if err != nil {
-		return offset, err
-	}
+func (p *Community) Bytes() []byte {
+	buf := make([]byte, p.Len())
+	offset := p.pathHeader.Bytes(buf)
 	for _, v := range p.Value {
 		binary.BigEndian.PutUint32(buf[offset:], v)
 		offset += 4
 	}
-	return offset, nil
+	return buf
 }
 
-func (p *Community) Unpack(buf []byte) (int, error) {
-	offset, err := p.PathHeader.Unpack(buf)
-	if err != nil {
-		return offset, err
-	}
-	if len(buf) < int(p.Length) {
-		return 0, fmt.Errorf("buffer size too small")
-	}
+func (p *Community) SetBytes(buf []byte) (int, error) {
+	offset := p.pathHeader.SetBytes(buf)
+
 	p.Value = make([]uint32, 0)
 	for offset < int(p.Length) {
 		p.Value = append(p.Value, binary.BigEndian.Uint32(buf[offset:]))
@@ -134,55 +127,47 @@ func (p *Community) Unpack(buf []byte) (int, error) {
 
 // Origin implements the ORIGIN path attribute.
 type Origin struct {
-	*PathHeader
+	*pathHeader
 	Value uint8
 }
 
-func (p *Origin) Len() int { return p.PathHeader.Len() + 1 }
+func (p *Origin) Type() int { return p.Type() }
+func (p *Origin) Len() int  { return p.pathHeader.Len() + 1 }
 
-func (p *Origin) Pack(buf []byte) (int, error) {
-	if len(buf) < p.Len() {
-		return 0, fmt.Errorf("buffer size too small")
-	}
-	offset, err := p.PathHeader.Pack(buf)
-	if err != nil {
-		return offset, err
-	}
+func (p *Origin) Bytes() []byte {
+	buf := make([]byte, p.Len())
+	offset := p.pathHeader.Bytes(buf)
 	buf[offset] = p.Value
-	return offset + 1, nil
+	return buf
 }
 
-func (p *Origin) Unpack(buf []byte) (int, error) {
-	offset, err := p.PathHeader.Unpack(buf)
-	if err != nil {
-		return offset, err
-	}
-	if len(buf) < int(p.Length) {
-		return 0, fmt.Errorf("buffer size too small")
-	}
+func (p *Origin) SetBytes(buf []byte) (int, error) {
+	offset := p.pathHeader.SetBytes(buf)
 	p.Value = buf[offset]
 	return offset + 1, nil
 }
 
 // AsPath implements the AS_PATH path attribute.
 type AsPath struct {
-	*PathHeader
+	*pathHeader
 	Value []Path
 }
 
+func (p *AsPath) Type() int { return p.Type() }
+
 func (p *AsPath) Len() int {
-	l := p.PathHeader.Len()
+	l := p.pathHeader.Len()
 	for _, v := range p.Value {
 		l += v.len()
 	}
 	return l
 }
 
-func (p *AsPath) Pack(buf []byte) (int, error) {
-	return 0, nil
+func (p *AsPath) Bytes() []byte {
+	return nil
 }
 
-func (p *AsPath) Unpack(buf []byte) (int, error) {
+func (p *AsPath) SetBytes(buf []byte) (int, error) {
 	return 0, nil
 }
 
@@ -223,11 +208,11 @@ func (p *Path) unpack(buf []byte) (int, error) {
 }
 
 type NextHop struct {
-	*PathHeader
+	*pathHeader
 	Value net.IP
 }
 
-func (p *NextHop) Len() int { return p.PathHeader.Len() + len(p.Value) }
+func (p *NextHop) Len() int { return p.pathHeader.Len() + len(p.Value) }
 
 func (p *NextHop) Pack(buf []byte) (int, error) {
 	return 0, nil

@@ -6,12 +6,14 @@ import (
 	"net"
 )
 
-// pack converts a header into wireformat and stores the result in buf.
-func (h *Header) pack(buf []byte) (int, error) {
-	if len(buf) < headerLen {
-		return 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
-	}
-	// Marker.
+// Header is the fixed-side header for each BGP message. See RFC 4271, section 4.1.
+// The marker is omitted.
+type Header struct {
+	Length uint16
+	Type   uint8
+}
+
+func (h *Header) SetBytes(buf []byte) int {
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
 	buf[8], buf[9], buf[10], buf[11] = 0xff, 0xff, 0xff, 0xff
@@ -20,48 +22,32 @@ func (h *Header) pack(buf []byte) (int, error) {
 	binary.BigEndian.PutUint16(buf[16:], h.Length)
 
 	buf[18] = h.Type
-	return 19, nil
+	return 19
 }
 
-// unpack converts the wireformat to a header
-func (h *Header) unpack(buf []byte) (int, error) {
-	if len(buf) < headerLen {
-		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
-	}
+func (h *Header) Bytes(buf []byte) int {
 	// Just skip the marker.
 	h.Length = binary.BigEndian.Uint16(buf[16:])
 	h.Type = buf[18]
-	return 19, nil
+	return 19
 }
 
-// pack converts Prefix into wireformat.
-func (p *Prefix) pack(buf []byte) (int, error) {
-	if len(buf) < 1 {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
+// Prefix is used as the (Length, Prefix) tuple in Update messages.
+type Prefix net.IPNet
+
+// Size returns the length of the mask in bits.
+func (p *Prefix) Size() int { _, bits := p.Mask.Size(); return bits }
+func (p *Prefix) Len() int  { return 1 + len(p.IP) }
+
+func (p *Prefix) Bytes() []byte {
+	buf := make([]byte, p.Len())
 	buf[0] = byte(p.Size())
-
-	if len(buf[1:]) < int(p.Size()/8) {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
-
-	for i := 0; i < int(p.Size()/8); i++ {
-		buf[1+i] = p.IP[i]
-	}
-	return 1 + int(p.Size()/8), nil
+	copy(buf[1:], p.IP)
+	return buf
 }
 
-// unpack converts the wireformat to a Prefix.
-func (p *Prefix) unpack(buf []byte) (int, error) {
-	if len(buf) < 1 {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
-
+func (p *Prefix) SetBytes(buf []byte) int {
 	p.Mask = net.CIDRMask(int(buf[0]), int(buf[0]))
-
-	if len(buf[1:]) < int(p.Size()/8) {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
 
 	for i := 0; i < int(p.Size()/8); i++ {
 		p.IP[i] = buf[1+i]
@@ -71,55 +57,15 @@ func (p *Prefix) unpack(buf []byte) (int, error) {
 		// need to double check all this (and test!)
 		buf[2+mod] &= ^(0xFF >> uint(mod))
 	}
-
-	return 1 + int(p.Size()/8), nil
+	return 1 + int(p.Size()/8)
 }
 
-// pack converts a Parameter to wireformat.
-func (p *Parameter) pack(buf []byte) (int, error) {
-	if len(buf) < 3 {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
-	buf[0] = p.Type
-	buf[1] = uint8(len(p.Value))
-	if len(buf[2:]) < len(p.Value) {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
-	for i := 0; i < len(p.Value); i++ {
-		buf[i+2] = p.Value[i]
-	}
-	return 2 + len(p.Value), nil
-}
-
-// unpack converts the wireformat back to a Parameter.
-func (p *Parameter) unpack(buf []byte) (int, error) {
-	if len(buf) < 3 {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
-	p.Type = buf[0]
-	length := int(buf[1])
-	if len(buf[2:]) < length {
-		return 0, fmt.Errorf("bgp: buffer size too small")
-	}
-	p.Value = make([]byte, length)
-	for i := 0; i < length; i++ {
-		p.Value[i] = buf[i+2]
-	}
-	return 2 + length, nil
-}
-
-// Pack converts an OPEN message to wire format.
-func (m *Open) Pack(buf []byte) (int, error) {
+func (m *Open) Bytes() []byte {
+	buf := make([]byte, m.Len())
 	m.Length = uint16(m.Len())
 	m.Type = OPEN // be sure we're encoding an OPEN message
 
-	offset := 0
-
-	n, err := m.Header.pack(buf[offset:])
-	if err != nil {
-		return offset, err
-	}
-	offset += n
+	offset := m.Header.Bytes(buf)
 
 	buf[offset] = m.Version
 	offset++
@@ -381,7 +327,7 @@ func (m *Update) Unpack(buf []byte) (int, error) {
 
 	i = 0
 	var (
-		p PathAttr
+		p TLV
 		e error
 		n int
 	)

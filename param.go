@@ -7,18 +7,46 @@ const (
 
 // Parameter is used in the Open message to negotiate options.
 type Parameter struct {
-	Type  uint8
-	Options []Option
+	typ  uint8
+	Options []TLV
 }
 
-// The different Options that can be used in Parameters.
-type Option interface {
-	Len() int                   // Len returns the length of the option in bytes when in wire format.
-	Pack([]byte) (int, error)   // Pack converts the option to wire format.
-	Unpack([]byte) (int, error) // Unpack converts the option from wire format.
+func (p *Parameter) Len() int {
+	l := 1
+	for _, o := range p.Options {
+		l += o.Len()
+	}
+	return l
 }
 
-//func (p *Parameter) len() int { return 2 + len(p.Value) }
+func (p *Parameter) Type() int { return int(p.Type) }
+
+func (p *Parameter) Bytes() []byte {
+	buf := make([]byte, p.Len())
+	buf[0] = p.Type
+	buf[1] = uint8(len(p.Value))
+	for i := 0; i < len(p.Value); i++ {
+		buf[i+2] = p.Value[i]
+	}
+	return buf
+}
+
+func (p *Parameter) SetBytes(buf []byte) (int, error) {
+	if len(buf) < 3 {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	p.Type = buf[0]
+	length := int(buf[1])
+	if len(buf[2:]) < length {
+		return 0, fmt.Errorf("bgp: buffer size too small")
+	}
+	p.Value = make([]byte, length)
+	for i := 0; i < length; i++ {
+		p.Value[i] = buf[i+2]
+	}
+	return 2 + length, nil
+}
+
 
 // Type codes of the Capabilities which are used as Parameter
 const (
