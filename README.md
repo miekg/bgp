@@ -16,6 +16,20 @@ BGP is a BGP-4 implementation in Go.
 
 ## Notes
 
+    OPEN
+        prefix
+        parameters -> capabilities
+          TLV            TLV
+
+    UPDATE
+        pathattributes -> origin
+                          aspath
+
+            TLV             TLV
+
+            only interested in capabilities and origin and aspath
+            easy way of adding.
+
 
 ## TODO
 

@@ -45,6 +45,8 @@ func (e *Error) Error() string {
 	return s
 }
 
+var errBuf = &Error{Err: "buffer size too small"}
+
 var errorCodes = map[int]string{
 	1: "message header error",
 	2: "OPEN message error",

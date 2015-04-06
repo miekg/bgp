@@ -7,7 +7,7 @@ const (
 
 // Parameter is used in the Open message to negotiate options.
 type Parameter struct {
-	typ  uint8
+	Type  uint8
 	Options []TLV
 }
 
@@ -18,8 +18,6 @@ func (p *Parameter) Len() int {
 	}
 	return l
 }
-
-func (p *Parameter) Type() int { return int(p.Type) }
 
 func (p *Parameter) Bytes() []byte {
 	buf := make([]byte, p.Len())
@@ -33,14 +31,14 @@ func (p *Parameter) Bytes() []byte {
 
 func (p *Parameter) SetBytes(buf []byte) (int, error) {
 	if len(buf) < 3 {
-		return 0, fmt.Errorf("bgp: buffer size too small")
+		return 0, errBuf
 	}
 	p.Type = buf[0]
 	length := int(buf[1])
-	if len(buf[2:]) < length {
-		return 0, fmt.Errorf("bgp: buffer size too small")
+	if len(buf) < length {
+		return 0, errBuf
 	}
-	p.Value = make([]byte, length)
+
 	for i := 0; i < length; i++ {
 		p.Value[i] = buf[i+2]
 	}
