@@ -16,19 +16,34 @@ BGP is a BGP-4 implementation in Go.
 
 ## Notes
 
-    OPEN
-        prefix
-        parameters -> capabilities
-          TLV            TLV
+OPEN
 
-    UPDATE
-        pathattributes -> origin
-                          aspath
+Capability is a thing. Capablity.Add(type, value)
+Remove()
 
-            TLV             TLV
+Which can then be added to Parameters
 
-            only interested in capabilities and origin and aspath
-            easy way of adding.
+So a client:
+
+    // Don't need header type, set the when putting it on the wire.
+    o := &bgp.Open{}
+    o.Version = dksl
+    o.MyAS = 
+
+    etc. etc.
+
+    To add Capability
+
+    c := &bgp.Capability{}
+    c.Append(bgp.CapAS4, 800000)
+    c.Append(bgp.CapSXXX, 'bla'
+
+    c.Append(int, {}interface...) // can be anything (or also TLV here. Think it should)
+
+    o.Parameter.Append(c)    // this append need SetBytes, Bytes, Len
+
+    For update message the some thing. So it's easy to build up
+
 
 
 ## TODO
