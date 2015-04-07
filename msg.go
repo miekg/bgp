@@ -206,7 +206,7 @@ func (m *Notification) SetBytes(buf []byte) (int, error) {
 
 	return offset, nil
 }
-
+/*
 func (m *Update) SetBytes(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
 	m.Type = UPDATE
@@ -395,3 +395,4 @@ func Pack(buf []byte, m Message) (int, error) {
 	}
 	return 0, NewError(1, 3, fmt.Sprintf("bad type: %T", m))
 }
+*/

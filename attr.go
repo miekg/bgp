@@ -39,8 +39,10 @@ const (
 
 const AS_TRANS = 23456
 
-// TLV is a Type-Length-Value
+// TLV is a Type-Length-Value that is used in all on-the-wire messages.
 type TLV interface {
+	// Code return the type of the TLV.
+	Code() int
 	// Len returns the length of the TLV bytes when in wire format.
 	Len() int
 	// Bytes return the bytes (of length Len()) of the value in wire format

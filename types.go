@@ -41,7 +41,7 @@ type Open struct {
 func (m *Open) Len() int {
 	l := 0
 	for _, p := range m.Parameters {
-		l += p.len()
+		l += p.Len()
 	}
 	return headerLen + 10 + l
 }
@@ -50,20 +50,20 @@ func (m *Open) Len() int {
 type Update struct {
 	*Header
 	WithdrawnRoutes  []Prefix
-	PathAttrs        []TLV
+	Attrs            []TLV
 	ReachabilityInfo []Prefix
 }
 
 func (m *Update) Len() int {
 	l := 0
 	for _, p := range m.WithdrawnRoutes {
-		l += p.len()
+		l += p.Len()
 	}
-	for _, p := range m.PathAttrs {
+	for _, p := range m.Attrs {
 		l += p.Len()
 	}
 	for _, p := range m.ReachabilityInfo {
-		l += p.len()
+		l += p.Len()
 	}
 
 	return headerLen + 4 + l
