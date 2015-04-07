@@ -13,7 +13,7 @@ type Parameter struct {
 	Options []TLV
 }
 
-func (p *Parameter) Len() int {
+func (p Parameter) Len() int {
 	l := 1
 	for _, o := range p.Options {
 		l += o.Len()
@@ -21,7 +21,7 @@ func (p *Parameter) Len() int {
 	return l
 }
 
-func (p *Parameter) Code() int { return int(p.Type) }
+func (p Parameter) Code() int { return int(p.Type) }
 
 func (p *Parameter) Bytes() []byte {
 	buf := make([]byte, 2)
@@ -37,7 +37,7 @@ func (p *Parameter) Bytes() []byte {
 	return buf
 }
 
-func (p *Parameter) SetBytes(buf []byte) (int, error) {
+func (p Parameter) SetBytes(buf []byte) (int, error) {
 	if len(buf) < 3 {
 		return 0, errBuf
 	}
@@ -46,16 +46,30 @@ func (p *Parameter) SetBytes(buf []byte) (int, error) {
 	if len(buf) < length {
 		return 0, errBuf
 	}
-
-	for i := 0; i < length; i++ {
-		// Type, code and length
-		n, e := p.Options[i].SetBytes(buf[i+2:])
-		if e != nil {
-			return i + 2, e
+	switch p.Type {
+	case CAPABILITY:
+		i := 0
+		Capabilities:
+		for i < length {
+			// look ahead a bit
+			switch buf[i+2] {
+			case CAPABILITY_AS4:
+				c := CapabilityAS4{}
+				n, e := c.SetBytes(buf[i:])
+				if e != nil {
+					return i + n, e
+				}
+				i += n
+				p.Options = append(p.Options, c)
+			default:
+				break Capabilities
+			}
 		}
-		i += n
+
+	default:
+		println("bgp: unknown type", p.Type)
 	}
-	return 2 + length, nil
+	return length+2, nil	// Add 2 for the 2 byte header
 }
 
 // Type codes of the Capabilities which are used as Parameter(s)
@@ -71,21 +85,26 @@ const (
 	CAPABILITY_AS4              = 65
 )
 
-type CapabilityAS4 uint32
+// CapabilityAS4 announces we support 32 bit AS numbers.
+type CapabilityAS4 struct {
+	ASN uint32
+}
 
-func (c *CapabilityAS4) Len() int { return 4 }
-func (c *CapabilityAS4) Code() int { return CAPABILITY_AS4 }
+func (c CapabilityAS4) Code() uint8 { return CAPABILITY_AS4 }
+func (c CapabilityAS4) Len() int    { return 2 + 4 }
 
-func (c *CapabilityAS4) Bytes() []byte {
-	buf := make([]byte, 4)
-	binary.BigEndian.PutUint32(buf, uint32(*c))
+func (c CapabilityAS4) Bytes() []byte {
+	buf := make([]byte, c.Len())
+	buf[0] = c.Code()
+	buf[1] = 4
+	binary.BigEndian.PutUint32(buf, c.ASN)
 	return buf
 }
 
-func (c *CapabilityAS4) SetBytes(buf []byte) (int, error) {
-	if len(buf) < 4 {
+func (c CapabilityAS4) SetBytes(buf []byte) (int, error) {
+	if len(buf) < 6 {
 		return 0, errBuf
 	}
-	*c = CapabilityAS4(binary.BigEndian.Uint32(buf))
-	return 5, nil
+	c.ASN = binary.BigEndian.Uint32(buf[2:])
+	return 7, nil
 }

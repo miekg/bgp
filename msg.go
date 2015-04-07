@@ -13,35 +13,37 @@ type Header struct {
 	Type   uint8
 }
 
-func (h *Header) SetBytes(buf []byte) (int, error) {
-	if len(buf) < headerLen {
-		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
-	}
-
+func (h *Header) Bytes() []byte {
+	buf := make([]byte, 19)
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
 	buf[8], buf[9], buf[10], buf[11] = 0xff, 0xff, 0xff, 0xff
 	buf[12], buf[13], buf[14], buf[15] = 0xff, 0xff, 0xff, 0xff
 
 	binary.BigEndian.PutUint16(buf[16:], h.Length)
-
 	buf[18] = h.Type
-	return 19, nil
+
+	return buf
 }
 
-func (h *Header) Bytes(buf []byte) int {
+func (h *Header) SetBytes(buf []byte) (int, error) {
+	if len(buf) < headerLen {
+		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
+	}
 	// Just skip the marker.
 	h.Length = binary.BigEndian.Uint16(buf[16:])
 	h.Type = buf[18]
-	return 19
+	return 19, nil
 }
 
 // Prefix is used as the (Length, Prefix) tuple in Update messages.
 type Prefix net.IPNet
 
-// Size returns the length of the mask in bits.
+// Size returns the length of the prefix in bits.
 func (p *Prefix) Size() int { _, bits := p.Mask.Size(); return bits }
-func (p *Prefix) Len() int  { return 1 + len(p.IP) }
+
+// Len returns the length of the prefix in bytes.
+func (p *Prefix) Len() int { return 1 + len(p.IP) }
 
 func (p *Prefix) Bytes() []byte {
 	buf := make([]byte, p.Len())
@@ -65,12 +67,13 @@ func (p *Prefix) SetBytes(buf []byte) int {
 }
 
 func (m *Open) Bytes() []byte {
-	buf := make([]byte, m.Len())
 	m.Length = uint16(m.Len())
-	m.Type = OPEN // be sure we're encoding an OPEN message
+	m.Type = OPEN
 
-	offset := m.Header.Bytes(buf)
+	header := m.Header.Bytes()
+	buf := make([]byte, m.Len()-len(header))
 
+	offset := 0
 	buf[offset] = m.Version
 	offset++
 
@@ -90,6 +93,7 @@ func (m *Open) Bytes() []byte {
 
 	for _, p := range m.Parameters {
 		// Hmm, copying the over. Suffice for now.
+		// Going with append which is prolly only slightly better.
 		pbuf := p.Bytes()
 		copy(buf[offset:], pbuf)
 		offset += p.Len()
@@ -131,7 +135,7 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 	i := 0
 	for i < pLength {
 		p := Parameter{}
-		n, e := p.SetBytes(buf[i+offset:])
+		n, e := p.SetBytes(buf[offset:])
 		if e != nil {
 			return offset, e
 		}
@@ -142,14 +146,16 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 	return offset, nil
 }
 
-func (m *Keepalive) Bytes() []byte {
-	buf := make([]byte, m.Len())
+// func (m *Open) String() string {
+// 	return "This is an OPEN message, with stuff"
+// }
 
+func (m *Keepalive) Bytes() []byte {
 	m.Length = uint16(m.Len())
 	m.Type = KEEPALIVE
 
-	m.Header.Bytes(buf)
-	return buf
+	header := m.Header.Bytes()
+	return header
 }
 
 func (m *Keepalive) SetBytes(buf []byte) (int, error) {
@@ -163,14 +169,18 @@ func (m *Keepalive) SetBytes(buf []byte) (int, error) {
 	return offset, nil
 }
 
-func (m *Notification) Bytes() []byte {
-	buf := make([]byte, m.Len())
+// func (m *Keepalive) String() string {
+// 	return "This is an KEEPALIVE message, without stuff"
+// }
 
+func (m *Notification) Bytes() []byte {
 	m.Length = uint16(m.Len())
 	m.Type = NOTIFICATION
+	header := m.Header.Bytes()
 
-	n := m.Header.Bytes(buf)
-	offset := n
+	buf := make([]byte, m.Len()-len(header))
+
+	offset := 0
 
 	buf[offset] = m.ErrorCode
 	offset++
@@ -179,12 +189,10 @@ func (m *Notification) Bytes() []byte {
 	offset++
 
 	copy(buf[offset:], m.Data)
-	return buf
+	return append(header, buf...)
 }
 
 func (m *Notification) SetBytes(buf []byte) (int, error) {
-	offset := 0
-
 	m.Header = new(Header)
 	offset, err := m.Header.SetBytes(buf)
 	if err != nil {
@@ -206,6 +214,11 @@ func (m *Notification) SetBytes(buf []byte) (int, error) {
 
 	return offset, nil
 }
+
+// func (m *Notification) String() string {
+// 	return "This is a NOTIFICATION message with errors"
+// }
+
 /*
 func (m *Update) SetBytes(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
@@ -349,11 +362,12 @@ func (m *Update) Unpack(buf []byte) (int, error) {
 	}
 	return offset, nil
 }
+*/
 
-// Unpack converts the wire format in buf to a BGP message. The first parsed
+// SetBytes converts the wire format in buf to a BGP message. The first parsed
 // message is returned together with the new offset in buf. If the parsing
 // fails an error is returned.
-func Unpack(buf []byte) (m Message, n int, e error) {
+func SetBytes(buf []byte) (m Message, n int, e error) {
 	if len(buf) < headerLen {
 		return nil, 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
@@ -361,16 +375,16 @@ func Unpack(buf []byte) (m Message, n int, e error) {
 	switch buf[18] {
 	case OPEN:
 		m = &Open{}
-		n, e = m.(*Open).Unpack(buf)
-	case UPDATE:
-		m = &Update{}
-		n, e = m.(*Update).Unpack(buf)
+		n, e = m.(*Open).SetBytes(buf)
+		//	case UPDATE:
+		//		m = &Update{}
+		//		n, e = m.(*Update).SetBytes(buf)
 	case NOTIFICATION:
 		m = &Notification{}
-		n, e = m.(*Notification).Unpack(buf)
+		n, e = m.(*Notification).SetBytes(buf)
 	case KEEPALIVE:
 		m = &Keepalive{}
-		n, e = m.(*Keepalive).Unpack(buf)
+		n, e = m.(*Keepalive).SetBytes(buf)
 	default:
 		return nil, 0, NewError(1, 3, fmt.Sprintf("bad type: %d", buf[18]))
 	}
@@ -380,19 +394,17 @@ func Unpack(buf []byte) (m Message, n int, e error) {
 	return m, n, nil
 }
 
-// Packs convert Message into wireformat and stores the result in buf. It
-// returns the new offset in buf or an error.
-func Pack(buf []byte, m Message) (int, error) {
+// Bytes convert Message into wireformat and returns it as a byte slice.
+func Bytes(m Message) []byte {
 	switch x := m.(type) {
 	case *Open:
-		return x.Pack(buf)
-	case *Update:
-		return x.Pack(buf)
+		return x.Bytes()
+		//	case *Update:
+		//		return x.Bytes()
 	case *Notification:
-		return x.Pack(buf)
+		return x.Bytes()
 	case *Keepalive:
-		return x.Pack(buf)
+		return x.Bytes()
 	}
-	return 0, NewError(1, 3, fmt.Sprintf("bad type: %T", m))
+	return nil
 }
-*/

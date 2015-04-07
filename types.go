@@ -21,10 +21,10 @@ const (
 )
 
 type Message interface {
-	pack([]byte) (int, error)
-	unpack([]byte) (int, error)
-	//	String() string?
+	Bytes() []byte
+	SetBytes([]byte) (int, error)
 	Len() int
+//	String() string
 }
 
 // Open holds the information used in the OPEN message format. RFC 4271, Section 4.2.
