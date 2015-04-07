@@ -16,21 +16,23 @@ func main() {
 		log.Fatalf("%s", err)
 	}
 
-	req := &bgp.Open{Header: &bgp.Header{Type: bgp.OPEN},
-		Version:       bgp.Version,
-		MyAS:          bgp.AS_TRANS,
-		HoldTime:      80,
-		BGPIdentifier: net.ParseIP("127.0.0.1").To4()}
+	// Create Open message with some capabilities
+	open := &bgp.Open{}
+	open.MyAS= bgp.AS_TRANS
+	open.HoldTime= 80
+	open.BGPIdentifier= net.ParseIP("127.0.0.1").To4()
+	open.Parameters = make([]bgp.Parameter, 1)
 
-	// Say we can do 32 bit ASN
-	req.Parameters = append(req.Parameters, bgp.Parameter{bgp.CAPABILITY, []bgp.TLV{bgp.CapabilityAS4{80000}}})
+	c := &bgp.Capability{}
+	c.Append(bgp.CAP_AS4, 80000)
+	open.Parameters[0].Append(bgp.CAP, c)
 
-	log.Printf("%s\n", req)
+	log.Printf("%+v\n", open)
 
-	resp, err := bgp.Do(conn, req)
+	resp, err := bgp.Do(conn, open)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 
-	log.Printf("%s\n", resp)
+	log.Printf("%+v\n", resp)
 }

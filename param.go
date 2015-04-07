@@ -2,42 +2,28 @@ package bgp
 
 import "encoding/binary"
 
-// The optional Parameters types that are defined.
-const (
-	CAPABILITY = 2
-)
-
 // Parameter is used in the Open message to negotiate options.
 type Parameter struct {
 	Type    uint8
-	Options []TLV
+	Data []TLV
 }
 
-func (p Parameter) Len() int {
-	l := 2
-	for _, o := range p.Options {
-		l += o.Len()
-	}
-	return l
-}
+func (p *Parameter) Code() int { return int(p.Type) }
 
-func (p Parameter) Code() int { return int(p.Type) }
+func (p *Parameter) Append(t int, v TLV) {
+	p.Type = uint8(t)
+	p.Data = append(p.Data, v)
+}
 
 func (p *Parameter) Bytes() []byte {
-	buf := make([]byte, 2)
-	buf[0] = p.Type
-
-	l := 0
-	for _, o := range p.Options {
-		buf = append(buf, o.Bytes()...)
-		l += o.Len()
+	buf := []byte{}
+	for _, d := range p.Data {
+		buf = append(buf, d.Bytes()...)
 	}
-
-	buf[1] = uint8(l)
-	return buf
+	return append([]byte{p.Type, byte(len(buf))}, buf...)
 }
 
-func (p Parameter) SetBytes(buf []byte) (int, error) {
+func (p *Parameter) SetBytes(buf []byte) (int, error) {
 	if len(buf) < 3 {
 		return 0, errBuf
 	}
@@ -47,64 +33,95 @@ func (p Parameter) SetBytes(buf []byte) (int, error) {
 		return 0, errBuf
 	}
 	switch p.Type {
-	case CAPABILITY:
-		i := 0
-	Capabilities:
-		for i < length {
-			// look ahead a bit
-			switch buf[i+2] {
-			case CAPABILITY_AS4:
-				c := CapabilityAS4{}
-				n, e := c.SetBytes(buf[i:])
-				if e != nil {
-					return i + n, e
-				}
-				i += n
-				p.Options = append(p.Options, c)
-			default:
-				break Capabilities
-			}
-		}
+	case CAP:
+		c := &Capability{}
 
+		i := 0
+		for i < length {
+			n, e := c.SetBytes(buf[i:])
+			if e != nil {
+				return i + n, e
+			}
+			i += n
+		}
+		p.Append(CAP, c)
 	default:
 		println("bgp: unknown type", p.Type)
 	}
 	return length + 2, nil // Add 2 for the 2 byte header
 }
 
-// Type codes of the Capabilities which are used as Parameter(s)
 const (
-	_ = iota
-	CAPABILITY_MULTI_PROTOCOl
-	CAPABILITY_ROUTE_REFRESH
-	CAPABILITY_ROUTE_FILTERING
-	CAPABILITY_MULTIPLE_ROUTES
-	CAPABILITY_EXTENDED_NEXTHOP
-
-	CAPABILITY_GRACEFUL_RESTART = 64
-	CAPABILITY_AS4              = 65
+	CAP = 2
 )
 
-// CapabilityAS4 announces we support 32 bit AS numbers.
-type CapabilityAS4 struct {
-	ASN uint32
+// The different capabilities
+const (
+	_ = iota
+	CAP_MULTI_PROTOCOl
+	CAP_ROUTE_REFRESH
+	CAP_ROUTE_FILTERING
+	CAP_MULTIPLE_ROUTES
+	CAP_EXTENDED_NEXTHOP
+
+	CAP_GRACEFUL_RESTART = 64
+	CAP_AS4              = 65
+)
+
+type typeData struct {
+	t int
+	d interface{}
 }
 
-func (c CapabilityAS4) Code() uint8 { return CAPABILITY_AS4 }
-func (c CapabilityAS4) Len() int    { return 2+4 }
+type Capability struct {
+	data []typeData
+}
 
-func (c CapabilityAS4) Bytes() []byte {
-	buf := make([]byte, c.Len())
-	buf[0] = c.Code()
-	buf[1] = 4
-	binary.BigEndian.PutUint32(buf[2:], c.ASN)
+func (c *Capability) Append(t int, v interface{}) {
+	switch t {
+	case CAP_AS4:
+		// Breaks when type case fails.
+		c.data = append(c.data, typeData{t, v.(int)})
+	default:
+		// unknown capability
+	}
+}
+
+func (c *Capability) Code() uint8 { return CAP }
+
+func (c *Capability) Bytes() []byte {
+	buf := make([]byte, 0)
+	for _, d := range c.data {
+		switch d.t {
+		case CAP_AS4:
+			b := make([]byte, 6)
+			b[0] = uint8(d.t)
+			b[1] = 4
+			binary.BigEndian.PutUint32(b[2:], uint32(d.d.(int)))
+			buf = append(buf, b...)
+		}
+	}
 	return buf
 }
 
-func (c CapabilityAS4) SetBytes(buf []byte) (int, error) {
-	if len(buf) < 6 {
-		return 0, errBuf
+func (c *Capability) SetBytes(buf []byte) (int, error) {
+	i := 0
+	for i < len(buf) {
+		switch buf[i] {
+		case CAP_AS4:
+			if len(buf[i:]) < 6 {
+				return i, errBuf
+			}
+			if buf[i+1] != 4 {
+				println("bgp: AS4 not 4 bytes")
+				return i, errBuf
+			}
+			v := binary.BigEndian.Uint32(buf[2:6])
+			c.Append(CAP_AS4, v)
+			i += 6
+		default:
+			println("bgp: unknown capability", buf[i])
+		}
 	}
-	c.ASN = binary.BigEndian.Uint32(buf[2:])
-	return 6, nil
+	return i, nil
 }

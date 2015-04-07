@@ -6,14 +6,12 @@ import (
 	"net"
 )
 
-// Header is the fixed-side header for each BGP message. See RFC 4271, section 4.1.
-// The marker is omitted.
-type Header struct {
+type header struct {
 	Length uint16
 	Type   uint8
 }
 
-func (h *Header) Bytes() []byte {
+func (h *header) Bytes() []byte {
 	buf := make([]byte, 19)
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[5], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
@@ -26,7 +24,7 @@ func (h *Header) Bytes() []byte {
 	return buf
 }
 
-func (h *Header) SetBytes(buf []byte) (int, error) {
+func (h *header) SetBytes(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
@@ -67,49 +65,35 @@ func (p *Prefix) SetBytes(buf []byte) int {
 }
 
 func (m *Open) Bytes() []byte {
-	m.Length = uint16(m.Len())
+	buf := make([]byte, 10)
+
+	buf[0] = m.Version
+	if m.Version == 0 {
+		buf[0] = Version
+	}
+	binary.BigEndian.PutUint16(buf[1:], m.MyAS)
+	binary.BigEndian.PutUint16(buf[3:], m.HoldTime)
+	buf[5], buf[6], buf[7], buf[8] =
+		m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3]
+
+	pbuf := make([]byte, 0)
+	for _, p := range m.Parameters {
+		pbuf = append(pbuf, p.Bytes()...)
+	}
+	buf[9] = uint8(len(pbuf)) // Length of the parameters.
+	buf = append(buf, pbuf...)
+
+	m.header = &header{}
+	m.Length = headerLen + uint16(10 + len(pbuf))
 	m.Type = OPEN
 
-	header := m.Header.Bytes()
-	buf := make([]byte, m.Len()-len(header))
-
-	offset := 0
-	buf[offset] = m.Version
-	offset++
-
-	binary.BigEndian.PutUint16(buf[offset:], m.MyAS)
-	offset += 2
-
-	binary.BigEndian.PutUint16(buf[offset:], m.HoldTime)
-	offset += 2
-
-	buf[offset], buf[offset+1], buf[offset+2], buf[offset+3] =
-		m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3]
-	offset += 4
-
-	// Save :for parameter length
-	pLength := offset
-	offset++
-
-	l := 0
-	for _, p := range m.Parameters {
-		// Hmm, copying the over. Suffice for now.
-		// Going with append which is prolly only slightly better.
-		pbuf := p.Bytes()
-		copy(buf[offset:], pbuf)
-		offset += len(pbuf)
-
-		println("pbuf len", len(pbuf), "and", p.Len())
-		l += p.Len()
-	}
-	buf[pLength] = uint8(l)
-	println("LENGTH", m.Length, "but", len(header) + len(buf))
+	header := m.header.Bytes()
 	return append(header, buf...)
 }
 
 func (m *Open) SetBytes(buf []byte) (int, error) {
-	m.Header = new(Header)
-	offset, err := m.Header.SetBytes(buf)
+	m.header = &header{}
+	offset, err := m.header.SetBytes(buf)
 	if err != nil {
 		return offset, err
 	}
@@ -118,63 +102,58 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 		return 0, NewError(2, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), m.Length))
 	}
 
-	m.Version = buf[offset]
-	offset++
-
-	m.MyAS = binary.BigEndian.Uint16(buf[offset:])
-	offset += 2
-
-	m.HoldTime = binary.BigEndian.Uint16(buf[offset:])
-	offset += 2
-
+	buf = buf[offset:]
+	m.Version = buf[0]
+	m.MyAS = binary.BigEndian.Uint16(buf[1:])
+	m.HoldTime = binary.BigEndian.Uint16(buf[3:])
 	m.BGPIdentifier = net.IPv4(0, 0, 0, 0)
 	m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3] =
-		buf[offset], buf[offset+1], buf[offset+2], buf[offset+3]
-	offset += 4
+		buf[5], buf[6], buf[7], buf[8]
 
-	pLength := int(buf[offset])
-	offset++
-	if len(buf) < offset+pLength {
+	pLength := int(buf[9])
+	// offset = 10
+	if len(buf) < 10+pLength {
 		return offset, NewError(2, 0, fmt.Sprintf("buffer size too small: %d < %d", len(buf), offset+pLength))
 	}
 
 	i := 0
 	for i < pLength {
+		println("here")
 		p := Parameter{}
-		n, e := p.SetBytes(buf[offset:])
+		n, e := p.SetBytes(buf[10+i:])
 		if e != nil {
-			return offset, e
+			return 10 + i, e
 		}
 		i += n
-		offset += n
 		m.Parameters = append(m.Parameters, p)
 	}
-	return offset, nil
+	return offset+10+i, nil
 }
 
 func (m *Keepalive) Bytes() []byte {
-	m.Length = uint16(m.Len())
+	m.Length = headerLen
 	m.Type = KEEPALIVE
 
-	header := m.Header.Bytes()
+	header := m.header.Bytes()
 	return header
 }
 
 func (m *Keepalive) SetBytes(buf []byte) (int, error) {
 	offset := 0
 
-	m.Header = new(Header)
-	offset, err := m.Header.SetBytes(buf)
+	m.header = &header{}
+	offset, err := m.header.SetBytes(buf)
 	if err != nil {
 		return offset, err
 	}
 	return offset, nil
 }
 
+/*
 func (m *Notification) Bytes() []byte {
 	m.Length = uint16(m.Len())
 	m.Type = NOTIFICATION
-	header := m.Header.Bytes()
+	header := m.header.Bytes()
 
 	buf := make([]byte, m.Len()-len(header))
 
@@ -191,8 +170,8 @@ func (m *Notification) Bytes() []byte {
 }
 
 func (m *Notification) SetBytes(buf []byte) (int, error) {
-	m.Header = new(Header)
-	offset, err := m.Header.SetBytes(buf)
+	m.header = &header
+	offset, err := m.header.SetBytes(buf)
 	if err != nil {
 		return offset, err
 	}
@@ -213,13 +192,12 @@ func (m *Notification) SetBytes(buf []byte) (int, error) {
 	return offset, nil
 }
 
-/*
 func (m *Update) SetBytes(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
 	m.Type = UPDATE
 
 	offset := 0
-	n, err := m.Header.SetBytes(buf[offset:])
+	n, err := m.header.SetBytes(buf[offset:])
 	if err != nil {
 		return offset, err
 	}
@@ -268,8 +246,8 @@ func (m *Update) SetBytes(buf []byte) (int, error) {
 func (m *Update) Unpack(buf []byte) (int, error) {
 	offset := 0
 
-	m.Header = new(Header)
-	offset, err := m.Header.unpack(buf)
+	m.header = &header{}
+	offset, err := m.header.unpack(buf)
 	if err != nil {
 		return offset, err
 	}

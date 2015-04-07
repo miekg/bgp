@@ -23,12 +23,11 @@ const (
 type Message interface {
 	Bytes() []byte
 	SetBytes([]byte) (int, error)
-	Len() int
 }
 
 // Open holds the information used in the OPEN message format. RFC 4271, Section 4.2.
 type Open struct {
-	*Header
+	*header
 	Version       uint8
 	MyAS          uint16 // AS_TRANS usaully.
 	HoldTime      uint16
@@ -36,51 +35,23 @@ type Open struct {
 	Parameters    []Parameter
 }
 
-// Len returns the length of the entire OPEN message.
-func (m *Open) Len() int {
-	l := 0
-	for _, p := range m.Parameters {
-		l += p.Len()
-	}
-	return headerLen + 10 + l
-}
-
 // Update holds the information used in the UPDATE message format. RFC 4271, section 4.3
 type Update struct {
-	*Header
+	*header
 	WithdrawnRoutes  []Prefix
 	Attrs            []TLV
 	ReachabilityInfo []Prefix
 }
 
-func (m *Update) Len() int {
-	l := 0
-	for _, p := range m.WithdrawnRoutes {
-		l += p.Len()
-	}
-	for _, p := range m.Attrs {
-		l += p.Len()
-	}
-	for _, p := range m.ReachabilityInfo {
-		l += p.Len()
-	}
-
-	return headerLen + 4 + l
-}
-
 // Keepalive holds only the header and is used for keep alive pings.
 type Keepalive struct {
-	*Header
+	*header
 }
-
-func (m *Keepalive) Len() int { return headerLen }
 
 // Notification holds an error. The TCP connection is closed after sending it.
 type Notification struct {
-	*Header
+	*header
 	ErrorCode    uint8
 	ErrorSubcode uint8
 	Data         []byte
 }
-
-func (m *Notification) Len() int { return headerLen + 2 + len(m.Data) }
