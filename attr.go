@@ -45,7 +45,7 @@ type TLV interface {
 	Code() uint8
 	// Len returns the length of the TLV bytes when in wire format.
 	Len() int
-	// Bytes return the bytes (of length Len()) of the value in wire format
+	// Bytes return the bytes (of length Len()) of the value in wire format.
 	Bytes() []byte
 	// SetBytes sets the value of the TLV, the bytes must be in network order.
 	// It returns a new offset in the bytes slice.

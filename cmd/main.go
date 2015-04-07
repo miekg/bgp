@@ -25,12 +25,12 @@ func main() {
 	// Say we can do 32 bit ASN
 	req.Parameters = append(req.Parameters, bgp.Parameter{bgp.CAPABILITY, []bgp.TLV{bgp.CapabilityAS4{80000}}})
 
-	log.Printf("%+v\n", req)
+	log.Printf("%s\n", req)
 
 	resp, err := bgp.Do(conn, req)
 	if err != nil {
 		log.Fatalf("%s", err)
 	}
 
-	log.Printf("%+v\n", resp)
+	log.Printf("%s\n", resp)
 }

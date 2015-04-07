@@ -16,7 +16,7 @@ type Header struct {
 func (h *Header) Bytes() []byte {
 	buf := make([]byte, 19)
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
-	buf[4], buf[4], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
+	buf[4], buf[5], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
 	buf[8], buf[9], buf[10], buf[11] = 0xff, 0xff, 0xff, 0xff
 	buf[12], buf[13], buf[14], buf[15] = 0xff, 0xff, 0xff, 0xff
 
@@ -87,18 +87,24 @@ func (m *Open) Bytes() []byte {
 		m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3]
 	offset += 4
 
-	// Save for parameter length
-	buf[offset] = uint8(m.Len() - offset)
+	// Save :for parameter length
+	pLength := offset
 	offset++
 
+	l := 0
 	for _, p := range m.Parameters {
 		// Hmm, copying the over. Suffice for now.
 		// Going with append which is prolly only slightly better.
 		pbuf := p.Bytes()
 		copy(buf[offset:], pbuf)
-		offset += p.Len()
+		offset += len(pbuf)
+
+		println("pbuf len", len(pbuf), "and", p.Len())
+		l += p.Len()
 	}
-	return buf
+	buf[pLength] = uint8(l)
+	println("LENGTH", m.Length, "but", len(header) + len(buf))
+	return append(header, buf...)
 }
 
 func (m *Open) SetBytes(buf []byte) (int, error) {
@@ -146,10 +152,6 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 	return offset, nil
 }
 
-// func (m *Open) String() string {
-// 	return "This is an OPEN message, with stuff"
-// }
-
 func (m *Keepalive) Bytes() []byte {
 	m.Length = uint16(m.Len())
 	m.Type = KEEPALIVE
@@ -168,10 +170,6 @@ func (m *Keepalive) SetBytes(buf []byte) (int, error) {
 	}
 	return offset, nil
 }
-
-// func (m *Keepalive) String() string {
-// 	return "This is an KEEPALIVE message, without stuff"
-// }
 
 func (m *Notification) Bytes() []byte {
 	m.Length = uint16(m.Len())
@@ -214,10 +212,6 @@ func (m *Notification) SetBytes(buf []byte) (int, error) {
 
 	return offset, nil
 }
-
-// func (m *Notification) String() string {
-// 	return "This is a NOTIFICATION message with errors"
-// }
 
 /*
 func (m *Update) SetBytes(buf []byte) (int, error) {

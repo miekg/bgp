@@ -14,7 +14,7 @@ type Parameter struct {
 }
 
 func (p Parameter) Len() int {
-	l := 1
+	l := 2
 	for _, o := range p.Options {
 		l += o.Len()
 	}
@@ -49,7 +49,7 @@ func (p Parameter) SetBytes(buf []byte) (int, error) {
 	switch p.Type {
 	case CAPABILITY:
 		i := 0
-		Capabilities:
+	Capabilities:
 		for i < length {
 			// look ahead a bit
 			switch buf[i+2] {
@@ -69,7 +69,7 @@ func (p Parameter) SetBytes(buf []byte) (int, error) {
 	default:
 		println("bgp: unknown type", p.Type)
 	}
-	return length+2, nil	// Add 2 for the 2 byte header
+	return length + 2, nil // Add 2 for the 2 byte header
 }
 
 // Type codes of the Capabilities which are used as Parameter(s)
@@ -91,13 +91,13 @@ type CapabilityAS4 struct {
 }
 
 func (c CapabilityAS4) Code() uint8 { return CAPABILITY_AS4 }
-func (c CapabilityAS4) Len() int    { return 2 + 4 }
+func (c CapabilityAS4) Len() int    { return 2+4 }
 
 func (c CapabilityAS4) Bytes() []byte {
 	buf := make([]byte, c.Len())
 	buf[0] = c.Code()
 	buf[1] = 4
-	binary.BigEndian.PutUint32(buf, c.ASN)
+	binary.BigEndian.PutUint32(buf[2:], c.ASN)
 	return buf
 }
 
@@ -106,5 +106,5 @@ func (c CapabilityAS4) SetBytes(buf []byte) (int, error) {
 		return 0, errBuf
 	}
 	c.ASN = binary.BigEndian.Uint32(buf[2:])
-	return 7, nil
+	return 6, nil
 }
