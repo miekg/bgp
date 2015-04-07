@@ -32,6 +32,7 @@ func (p *Parameter) SetBytes(buf []byte) (int, error) {
 	if len(buf) < length {
 		return 0, errBuf
 	}
+	buf = buf[2:]
 	switch p.Type {
 	case CAP:
 		c := &Capability{}
