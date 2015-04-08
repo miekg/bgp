@@ -20,6 +20,10 @@ Parameters in the open message seems not to be used. Can hide it
 in its entirety and just focus on capabilities. i.e make Append()
 work on the open message itself.
 
+Also the data in now a []TLV, maybe it would be nicer to have a
+map map[int]TLV indexed on the Code so we can implement a .Clear(code int)
+as well to clear a message.
+
 ## TODO
 
 * fix all error uses

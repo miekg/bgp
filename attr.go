@@ -49,71 +49,47 @@ const (
 
 // Attribute is a path attribute as used in the Update message.
 type Attribute struct {
-	Flags uint8
-	Code uint8
+	Flags  uint8
+	Code   uint8
 	Length uint16
-	Data []TLV
+	//	if p.Flags&FlagLength == FlagLength {
+	data []TLV
+
+	// maybe put the data in a map based on Code. So Cel
 }
 
 func (p *Attribute) Append(t int, v TLV) {
 	p.Code = uint8(t)
-	p.Data = append(p.Data, v)
+	p.data = append(p.data, v)
 }
 
-// Origin implements the ORIGIN path attribute.
-type Origin struct {
-	*AttrHeader
-	Origin uint8
-}
-
-func (p *Origin) Bytes() []byte {
-	header := p.AttrHeader.Bytes()
-	return append(header, byte(p.Origin))
-}
-
-func (p *Origin) SetBytes(buf []byte) (int, error) {
-	offset, err := p.AttrHeader.SetBytes(buf)
-	if err != nil {
-		return offset, err
+func (p *Attribute) Bytes() []byte {
+	buf := []byte{}
+	for _, d := range p.data {
+		buf = append(buf, d.Bytes()...)
 	}
-	p.Origin = buf[offset]
-	return offset + 1, nil
-}
-
-
-// AttrHeader is the header each of the path attributes have in common.
-type AttrHeader struct {
-	Flags  uint8
-	Code   uint8
-	Length uint16 // Length is either stored with 8 or 16 bits.
-}
-
-func (p *AttrHeader) Len() int {
-	if p.Flags&FlagLength == FlagLength {
-		return 2 + 2
+	header := make([]byte, 4)
+	header[0] = p.Flags
+	header[1] = p.Code
+	if len(buf) > 65536-1 {
+		header[0] |= FlagLength
+		binary.BigEndian.PutUint16(header[2:], uint16(p.Length))
+	} else {
+		header[2] = uint8(len(buf))
+		header = header[:3]
 	}
-	return 1 + 2
+	return append(header, buf...)
 }
 
-func (p *AttrHeader) Bytes() []byte {
-	buf := make([]byte, p.Len())
-	buf[0] = p.Flags
-	buf[1] = p.Code
-	buf[2] = uint8(p.Length)
-	if len(buf) == 4 {
-		binary.BigEndian.PutUint16(buf[2:], uint16(p.Length))
-	}
-	return buf
-}
-
-func (p *AttrHeader) SetBytes(buf []byte) (int, error) {
+func (p *Attribute) SetBytes(buf []byte) (int, error) {
+	// TODO(Miek): does not work.
 	if len(buf) < 3 {
 		return 0, errBuf
 	}
 	p.Flags = buf[0]
 	p.Code = buf[1]
 	if p.Flags&FlagLength == FlagLength {
-		if len(buf) < 3 {
+		if len(buf) < 4 {
 			return 2, errBuf
 		}
 		p.Length = binary.BigEndian.Uint16(buf[2:])
@@ -123,107 +99,67 @@ func (p *AttrHeader) SetBytes(buf []byte) (int, error) {
 	return 3, nil
 }
 
-// Community implements RFC 1997 COMMUNITIES path attribute.
-type Community struct {
-	*AttrHeader
-	Communities []uint32
+// Origin implements the ORIGIN path attribute.
+type Origin uint8
+
+func (p *Origin) Bytes() []byte { return []byte{uint8(*p)} }
+func (p *Origin) SetBytes(buf []byte) (int, error) {
+	if len(buf) < 1 {
+		return 0, errBuf
+	}
+	*p = Origin(buf[0])
+	return 1, nil
 }
 
-func (p *Community) Bytes() []byte {
-	header := p.AttrHeader.Bytes()
+// Community implements RFC 1997 COMMUNITIES path attribute.
+type Community []uint32
 
-	buf := make([]byte, p.Len()-p.AttrHeader.Len())
-	offset := 0
-	for _, v := range p.Communities {
-		binary.BigEndian.PutUint32(buf[offset:], v)
-		offset += 4
+func (p *Community) Bytes() []byte {
+	buf := make([]byte, 4*len(*p))
+	for i, v := range *p {
+		binary.BigEndian.PutUint32(buf[i*4:], v)
 	}
-	return append(header, buf...)
+	return buf
 }
 
 func (p *Community) SetBytes(buf []byte) (int, error) {
-	offset, err := p.AttrHeader.SetBytes(buf)
-	if err != nil {
-		return offset, err
-	}
-
-	p.Communities = make([]uint32, 0)
-	for offset < int(p.Length) {
-		p.Communities = append(p.Communities, binary.BigEndian.Uint32(buf[offset:]))
+	offset := 0
+	for offset < len(buf)-4 {
+		*p = append(*p, binary.BigEndian.Uint32(buf[offset:]))
 		offset += 4
 	}
 	return offset, nil
 }
 
 // AsPath implements the AS_PATH path attribute.
+type Path []AsPath
+
 type AsPath struct {
-	*AttrHeader
-	Paths []Path
-}
-
-func (p *AsPath) Bytes() []byte {
-	buf := p.AttrHeader.Bytes()
-	for _, p := range p.Paths {
-		buf = append(buf, p.Bytes()...)
-	}
-	return buf
-}
-
-func (p *AsPath) SetBytes(buf []byte) (int, error) {
-	offset, err := p.AttrHeader.SetBytes(buf)
-	if err != nil {
-		return offset, err
-	}
-	return offset, err
-}
-
-// Path is used to encode the AS paths in the AsPath attribute
-type Path struct {
 	Type uint8    // Either AS_SET of AS_SEQUENCE.
 	AS   []uint32 // The AS numbers as 32 bit entities.
 }
 
 func (p *Path) Bytes() []byte {
-	buf := make([]byte, 20)
-	buf[0] = p.Type
-	buf[1] = uint8(len(p.AS))
-
-	offset := 2
-
-	for _, a := range p.AS {
-		binary.BigEndian.PutUint32(buf[offset:], a)
-		offset += 4
+	var buf []byte
+	for _, a := range *p {
+		b := make([]byte, 2+4*len(a.AS))
+		b[0] = a.Type
+		b[1] = byte(len(a.AS))
+		offset := 2
+		for _, as := range a.AS {
+			binary.BigEndian.PutUint32(b[offset:], as)
+			offset += 4
+		}
+		buf = append(buf, b...)
 	}
 	return buf
 }
 
 func (p *Path) SetBytes(buf []byte) (int, error) {
-	if len(buf) < 2 {
-		return 0, errBuf
-	}
-
-	p.Type = buf[0]
-	l := int(buf[1])
-
-	if len(buf) < 2+4*l {
-		return 0, errBuf
-	}
-
-	offset := 2
-	p.AS = make([]uint32, 0)
-	for offset < 2+4*l {
-		p.AS = append(p.AS, binary.BigEndian.Uint32(buf[offset:]))
-		offset += 4
-	}
-	return offset, nil
+	return 0, nil
 }
 
-type NextHop struct {
-	*AttrHeader
-	NextHop net.IP
-}
-
-func (p *NextHop) Len() int { return p.AttrHeader.Len() + len(p.NextHop) }
+type NextHop net.IP
 
 func (p *NextHop) Bytes() []byte {
 	return nil

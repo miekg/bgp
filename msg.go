@@ -121,7 +121,6 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 
 	i := 0
 	for i < pLength {
-		println("here")
 		p := Parameter{}
 		n, e := p.SetBytes(buf[10+i:])
 		if e != nil {
