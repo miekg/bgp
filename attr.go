@@ -10,14 +10,14 @@ import (
 // Define the types used for well-known path attributes in an Update message.
 const (
 	_ = iota
-	ORIGIN
-	AS_PATH
-	NEXT_HOP
-	MULTI_EXIT_DISC
-	LOCAL_PREF
-	ATOMIC_AGGREGATE
-	AGGREGATOR
-	COMMUNITIES
+	origin
+	path
+	next_hop
+	multi_exit_disc
+	local_pref
+	atomic_aggregate
+	aggregator
+	communities
 )
 
 // Values used in the well-known path attributes.
@@ -27,7 +27,7 @@ const (
 	EGP        = 1
 	INCOMPLETE = 2
 
-	// AS_PATH
+	// PATH
 	AS_SET      = 1
 	AS_SEQUENCE = 2
 
@@ -52,7 +52,6 @@ type Attribute struct {
 	Flags  uint8
 	Code   uint8
 	Length uint16
-	//	if p.Flags&FlagLength == FlagLength {
 	data []TLV
 
 	// maybe put the data in a map based on Code. So Cel
@@ -135,6 +134,7 @@ func (p *Community) SetBytes(buf []byte) (int, error) {
 // AsPath implements the AS_PATH path attribute.
 type Path []AsPath
 
+// Hide AsPath, use append to add to Path.
 type AsPath struct {
 	Type uint8    // Either AS_SET of AS_SEQUENCE.
 	AS   []uint32 // The AS numbers as 32 bit entities.

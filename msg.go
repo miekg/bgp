@@ -11,7 +11,7 @@ type header struct {
 	Type   uint8
 }
 
-func (h *header) Bytes() []byte {
+func (h *header) bytes() []byte {
 	buf := make([]byte, 19)
 	buf[0], buf[1], buf[2], buf[3] = 0xff, 0xff, 0xff, 0xff
 	buf[4], buf[5], buf[6], buf[7] = 0xff, 0xff, 0xff, 0xff
@@ -24,7 +24,7 @@ func (h *header) Bytes() []byte {
 	return buf
 }
 
-func (h *header) SetBytes(buf []byte) (int, error) {
+func (h *header) setBytes(buf []byte) (int, error) {
 	if len(buf) < headerLen {
 		return 0, NewError(1, 2, fmt.Sprintf("unpack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
@@ -37,34 +37,24 @@ func (h *header) SetBytes(buf []byte) (int, error) {
 // Prefix is used as the (Length, Prefix) tuple in Update messages.
 type Prefix net.IPNet
 
-// Size returns the length of the prefix in bits.
-func (p *Prefix) Size() int { _, bits := p.Mask.Size(); return bits }
+func (p *Prefix) size() int { _, bits := p.Mask.Size(); return bits }
+func (p *Prefix) bytes() []byte { return append([]byte{byte(p.size())}, p.IP...) }
 
-// Len returns the length of the prefix in bytes.
-func (p *Prefix) Len() int { return 1 + len(p.IP) }
-
-func (p *Prefix) Bytes() []byte {
-	buf := make([]byte, p.Len())
-	buf[0] = byte(p.Size())
-	copy(buf[1:], p.IP)
-	return buf
-}
-
-func (p *Prefix) SetBytes(buf []byte) int {
+func (p *Prefix) setBytes(buf []byte) (int, error) {
 	p.Mask = net.CIDRMask(int(buf[0]), int(buf[0]))
 
-	for i := 0; i < int(p.Size()/8); i++ {
+	for i := 0; i < int(p.size()/8); i++ {
 		p.IP[i] = buf[1+i]
 	}
 	// now zero the last byte, otherwise there could be random crap in there.
-	if mod := p.Size() % 8; mod != 0 {
+	if mod := p.size() % 8; mod != 0 {
 		// need to double check all this (and test!)
 		buf[2+mod] &= ^(0xFF >> uint(mod))
 	}
-	return 1 + int(p.Size()/8)
+	return 1 + int(p.size()/8), nil
 }
 
-func (m *Open) Bytes() []byte {
+func (m *Open) bytes() []byte {
 	buf := make([]byte, 10)
 
 	buf[0] = m.Version
@@ -88,15 +78,15 @@ func (m *Open) Bytes() []byte {
 
 	m.header = &header{}
 	m.Length = headerLen + uint16(10+len(pbuf))
-	m.Type = OPEN
+	m.Type = open
 
-	header := m.header.Bytes()
+	header := m.header.bytes()
 	return append(header, buf...)
 }
 
-func (m *Open) SetBytes(buf []byte) (int, error) {
+func (m *Open) setBytes(buf []byte) (int, error) {
 	m.header = &header{}
-	offset, err := m.header.SetBytes(buf)
+	offset, err := m.header.setBytes(buf)
 	if err != nil {
 		return offset, err
 	}
@@ -132,19 +122,19 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 	return offset + 10 + i, nil
 }
 
-func (m *Keepalive) Bytes() []byte {
+func (m *Keepalive) bytes() []byte {
 	m.Length = headerLen
-	m.Type = KEEPALIVE
+	m.Type = keepalive
 
-	header := m.header.Bytes()
+	header := m.header.bytes()
 	return header
 }
 
-func (m *Keepalive) SetBytes(buf []byte) (int, error) {
+func (m *Keepalive) setBytes(buf []byte) (int, error) {
 	offset := 0
 
 	m.header = &header{}
-	offset, err := m.header.SetBytes(buf)
+	offset, err := m.header.setBytes(buf)
 	if err != nil {
 		return offset, err
 	}
@@ -152,7 +142,7 @@ func (m *Keepalive) SetBytes(buf []byte) (int, error) {
 }
 
 /*
-func (m *Notification) Bytes() []byte {
+func (m *Notification) bytes() []byte {
 	m.Length = uint16(m.Len())
 	m.Type = NOTIFICATION
 	header := m.header.Bytes()
@@ -171,7 +161,7 @@ func (m *Notification) Bytes() []byte {
 	return append(header, buf...)
 }
 
-func (m *Notification) SetBytes(buf []byte) (int, error) {
+func (m *Notification) setBytes(buf []byte) (int, error) {
 	m.header = &header
 	offset, err := m.header.SetBytes(buf)
 	if err != nil {
@@ -194,7 +184,7 @@ func (m *Notification) SetBytes(buf []byte) (int, error) {
 	return offset, nil
 }
 
-func (m *Update) SetBytes(buf []byte) (int, error) {
+func (m *Update) setBytes(buf []byte) (int, error) {
 	m.Length = uint16(m.Len())
 	m.Type = UPDATE
 
@@ -338,27 +328,27 @@ func (m *Update) Unpack(buf []byte) (int, error) {
 }
 */
 
-// SetBytes converts the wire format in buf to a BGP message. The first parsed
+// setBytes converts the wire format in buf to a BGP message. The first parsed
 // message is returned together with the new offset in buf. If the parsing
 // fails an error is returned.
-func SetBytes(buf []byte) (m Message, n int, e error) {
+func setBytes(buf []byte) (m Message, n int, e error) {
 	if len(buf) < headerLen {
 		return nil, 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
 	// Byte 18 has the type.
 	switch buf[18] {
-	case OPEN:
+	case open:
 		m = &Open{}
-		n, e = m.(*Open).SetBytes(buf)
-		//	case UPDATE:
+		n, e = m.(*Open).setBytes(buf)
+		//	case update:
 		//		m = &Update{}
 		//		n, e = m.(*Update).SetBytes(buf)
-	case NOTIFICATION:
+	case notification:
 		m = &Notification{}
-		n, e = m.(*Notification).SetBytes(buf)
-	case KEEPALIVE:
+		n, e = m.(*Notification).setBytes(buf)
+	case keepalive:
 		m = &Keepalive{}
-		n, e = m.(*Keepalive).SetBytes(buf)
+		n, e = m.(*Keepalive).setBytes(buf)
 	default:
 		return nil, 0, NewError(1, 3, fmt.Sprintf("bad type: %d", buf[18]))
 	}
@@ -369,16 +359,16 @@ func SetBytes(buf []byte) (m Message, n int, e error) {
 }
 
 // Bytes convert Message into wireformat and returns it as a byte slice.
-func Bytes(m Message) []byte {
+func bytes(m Message) []byte {
 	switch x := m.(type) {
 	case *Open:
-		return x.Bytes()
+		return x.bytes()
 		//	case *Update:
-		//		return x.Bytes()
+		//		return x.bytes()
 	case *Notification:
-		return x.Bytes()
+		return x.bytes()
 	case *Keepalive:
-		return x.Bytes()
+		return x.bytes()
 	}
 	return nil
 }

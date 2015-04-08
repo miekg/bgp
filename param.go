@@ -1,9 +1,6 @@
 package bgp
 
-import (
-	"encoding/binary"
-	"fmt"
-)
+import "encoding/binary"
 
 // Parameter is used in the Open message to negotiate options.
 type Parameter struct {
@@ -98,21 +95,6 @@ func (c *Capability) Append(t int, v ...interface{}) error {
 		// unknown capability
 	}
 	return nil
-}
-
-func (c *Capability) String() string {
-	s := ""
-	for _, d := range c.data {
-		switch d.t {
-		case CAP_MULTI_PROTOCOL:
-			s += fmt.Sprintf("CAP_MULTI_PROTOCOL:4:<%d:%d>", binary.BigEndian.Uint16(d.d), d.d[3])
-		case CAP_ROUTE_REFRESH:
-			s += "CAP_ROUTE_REFRESH:0:<>"
-		case CAP_AS4:
-			s += fmt.Sprintf("CAP_AS4:4:<%d>", binary.BigEndian.Uint32(d.d))
-		}
-	}
-	return s
 }
 
 func (c *Capability) Bytes() []byte {

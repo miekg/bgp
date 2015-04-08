@@ -8,7 +8,7 @@ import (
 // Do sends a bgp message to the connection conn and waits for a reply.
 // The reply message is returned or an error, if one is encountered.
 func Do(conn net.Conn, m Message) (Message, error) {
-	buf := Bytes(m)
+	buf := bytes(m)
 	n, err := conn.Write(buf)
 	if err != nil {
 		return nil, err
@@ -22,7 +22,7 @@ func Do(conn net.Conn, m Message) (Message, error) {
 	buf1 = buf1[:n]
 
 	fmt.Printf("%v\n", buf1)
-	m1, n, err := SetBytes(buf1)
+	m1, n, err := setBytes(buf1)
 	if err != nil {
 		return nil, err
 	}
