@@ -60,6 +60,27 @@ func (p *Attribute) Append(t int, v TLV) {
 	p.Data = append(p.Data, v)
 }
 
+// Origin implements the ORIGIN path attribute.
+type Origin struct {
+	*AttrHeader
+	Origin uint8
+}
+
+func (p *Origin) Bytes() []byte {
+	header := p.AttrHeader.Bytes()
+	return append(header, byte(p.Origin))
+}
+
+func (p *Origin) SetBytes(buf []byte) (int, error) {
+	offset, err := p.AttrHeader.SetBytes(buf)
+	if err != nil {
+		return offset, err
+	}
+	p.Origin = buf[offset]
+	return offset + 1, nil
+}
+
+
 // AttrHeader is the header each of the path attributes have in common.
 type AttrHeader struct {
 	Flags  uint8
@@ -132,26 +153,6 @@ func (p *Community) SetBytes(buf []byte) (int, error) {
 		offset += 4
 	}
 	return offset, nil
-}
-
-// Origin implements the ORIGIN path attribute.
-type Origin struct {
-	*AttrHeader
-	Origin uint8
-}
-
-func (p *Origin) Bytes() []byte {
-	header := p.AttrHeader.Bytes()
-	return append(header, byte(p.Origin))
-}
-
-func (p *Origin) SetBytes(buf []byte) (int, error) {
-	offset, err := p.AttrHeader.SetBytes(buf)
-	if err != nil {
-		return offset, err
-	}
-	p.Origin = buf[offset]
-	return offset + 1, nil
 }
 
 // AsPath implements the AS_PATH path attribute.
