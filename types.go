@@ -23,7 +23,7 @@ const (
 // TLV is a Type-Length-Value that is used in all on-the-wire messages.
 type TLV interface {
 	// Code returns the type of the TLV.
-//	Code() uint8
+	//	Code() uint8
 	// Bytes return the bytes of the value in wire format.
 	Bytes() []byte
 	// SetBytes sets the value of the TLV, the bytes must be in network order.

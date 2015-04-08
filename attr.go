@@ -58,9 +58,10 @@ type Attribute struct {
 	// maybe put the data in a map based on Code. So Cel
 }
 
-func (p *Attribute) Append(t int, v TLV) {
+func (p *Attribute) Append(t int, v TLV) error {
 	p.Code = uint8(t)
 	p.data = append(p.data, v)
+	return nil
 }
 
 func (p *Attribute) Bytes() []byte {
