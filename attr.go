@@ -39,17 +39,6 @@ const (
 
 const AS_TRANS = 23456
 
-// TLV is a Type-Length-Value that is used in all on-the-wire messages.
-type TLV interface {
-	// Code returns the type of the TLV.
-	Code() uint8
-	// Bytes return the bytes of the value in wire format.
-	Bytes() []byte
-	// SetBytes sets the value of the TLV, the bytes must be in network order.
-	// It returns a new offset in the bytes slice.
-	SetBytes([]byte) (int, error)
-}
-
 // Path attribute header flags.
 const (
 	FlagOptional   = 1 << 8
@@ -57,6 +46,19 @@ const (
 	FlagPartial    = 1 << 6
 	FlagLength     = 1 << 5
 )
+
+// Attribute is a path attribute as used in the Update message.
+type Attribute struct {
+	Flags uint8
+	Code uint8
+	Length uint16
+	Data []TLV
+}
+
+func (p *Attribute) Append(t int, v TLV) {
+	p.Code = uint8(t)
+	p.Data = append(p.Data, v)
+}
 
 // AttrHeader is the header each of the path attributes have in common.
 type AttrHeader struct {
@@ -106,8 +108,6 @@ type Community struct {
 	Communities []uint32
 }
 
-func (p *Community) Len() int { return p.AttrHeader.Len() + 4*len(p.Communities) }
-
 func (p *Community) Bytes() []byte {
 	header := p.AttrHeader.Bytes()
 
@@ -140,8 +140,6 @@ type Origin struct {
 	Origin uint8
 }
 
-func (p *Origin) Len() int { return p.AttrHeader.Len() + 1 }
-
 func (p *Origin) Bytes() []byte {
 	header := p.AttrHeader.Bytes()
 	return append(header, byte(p.Origin))
@@ -160,14 +158,6 @@ func (p *Origin) SetBytes(buf []byte) (int, error) {
 type AsPath struct {
 	*AttrHeader
 	Paths []Path
-}
-
-func (p *AsPath) Len() int {
-	l := p.AttrHeader.Len()
-	for _, v := range p.Paths {
-		l += v.Len()
-	}
-	return l
 }
 
 func (p *AsPath) Bytes() []byte {
@@ -192,10 +182,8 @@ type Path struct {
 	AS   []uint32 // The AS numbers as 32 bit entities.
 }
 
-func (p *Path) Len() int { return 2 + 4*len(p.AS) }
-
 func (p *Path) Bytes() []byte {
-	buf := make([]byte, p.Len())
+	buf := make([]byte, 20)
 	buf[0] = p.Type
 	buf[1] = uint8(len(p.AS))
 

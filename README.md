@@ -16,6 +16,10 @@ BGP is a BGP-4 implementation in Go.
 
 ## Notes
 
+Parameters in the open message seems not to be used. Can hide it
+in its entirety and just focus on capabilities. i.e make Append()
+work on the open message itself.
+
 ## TODO
 
 * fix all error uses

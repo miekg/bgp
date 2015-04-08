@@ -71,7 +71,10 @@ func (m *Open) Bytes() []byte {
 	if m.Version == 0 {
 		buf[0] = Version
 	}
-	binary.BigEndian.PutUint16(buf[1:], m.MyAS)
+	binary.BigEndian.PutUint16(buf[1:], m.AS)
+	if m.AS == 0 {
+		binary.BigEndian.PutUint16(buf[1:], AS_TRANS)
+	}
 	binary.BigEndian.PutUint16(buf[3:], m.HoldTime)
 	buf[5], buf[6], buf[7], buf[8] =
 		m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3]
@@ -84,7 +87,7 @@ func (m *Open) Bytes() []byte {
 	buf = append(buf, pbuf...)
 
 	m.header = &header{}
-	m.Length = headerLen + uint16(10 + len(pbuf))
+	m.Length = headerLen + uint16(10+len(pbuf))
 	m.Type = OPEN
 
 	header := m.header.Bytes()
@@ -104,7 +107,7 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 
 	buf = buf[offset:]
 	m.Version = buf[0]
-	m.MyAS = binary.BigEndian.Uint16(buf[1:])
+	m.AS = binary.BigEndian.Uint16(buf[1:])
 	m.HoldTime = binary.BigEndian.Uint16(buf[3:])
 	m.BGPIdentifier = net.IPv4(0, 0, 0, 0)
 	m.BGPIdentifier[0], m.BGPIdentifier[1], m.BGPIdentifier[2], m.BGPIdentifier[3] =
@@ -127,7 +130,7 @@ func (m *Open) SetBytes(buf []byte) (int, error) {
 		i += n
 		m.Parameters = append(m.Parameters, p)
 	}
-	return offset+10+i, nil
+	return offset + 10 + i, nil
 }
 
 func (m *Keepalive) Bytes() []byte {

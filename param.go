@@ -4,11 +4,9 @@ import "encoding/binary"
 
 // Parameter is used in the Open message to negotiate options.
 type Parameter struct {
-	Type    uint8
+	Type uint8
 	Data []TLV
 }
-
-func (p *Parameter) Code() int { return int(p.Type) }
 
 func (p *Parameter) Append(t int, v TLV) {
 	p.Type = uint8(t)
