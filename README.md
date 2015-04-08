@@ -26,6 +26,7 @@ as well to clear a message.
 
 ## TODO
 
+* multiple message after each other, i.e. Open and Notifcation.
 * fix all error uses
 * create server infra ala net/http, godns
 * Fix Path Attributes, these are like dns RR's, define an interface
