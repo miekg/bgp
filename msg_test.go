@@ -40,8 +40,8 @@ func msgCompare(t *testing.T, te Msg, a Msg) {
 		if te.HoldTime != a.HoldTime {
 			t.Fatalf("open holdtime mismatch: expected %d, got %d", te.HoldTime, a.HoldTime)
 		}
-		l.Logf("%s\n", a.BGPIdentifier)
-		l.Logf("%s\n", te.BGPIdentifier)
+		t.Logf("%s\n", a.BGPIdentifier)
+		t.Logf("%s\n", te.BGPIdentifier)
 	default:
 		t.Fatalf("unknown message type %T", typ)
 	}
