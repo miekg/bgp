@@ -52,7 +52,7 @@ type Attribute struct {
 	Flags  uint8
 	Code   uint8
 	Length uint16
-	data []TLV
+	data   []TLV
 
 	// maybe put the data in a map based on Code. So Cel
 }

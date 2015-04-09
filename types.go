@@ -32,7 +32,7 @@ type TLV interface {
 }
 
 // Message is a BGP message.
-type Message interface {
+type Msg interface {
 	bytes() []byte
 	setBytes([]byte) (int, error)
 }

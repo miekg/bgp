@@ -37,7 +37,7 @@ func (h *header) setBytes(buf []byte) (int, error) {
 // Prefix is used as the (Length, Prefix) tuple in Update messages.
 type Prefix net.IPNet
 
-func (p *Prefix) size() int { _, bits := p.Mask.Size(); return bits }
+func (p *Prefix) size() int     { _, bits := p.Mask.Size(); return bits }
 func (p *Prefix) bytes() []byte { return append([]byte{byte(p.size())}, p.IP...) }
 
 func (p *Prefix) setBytes(buf []byte) (int, error) {
@@ -331,7 +331,7 @@ func (m *Update) Unpack(buf []byte) (int, error) {
 // setBytes converts the wire format in buf to a BGP message. The first parsed
 // message is returned together with the new offset in buf. If the parsing
 // fails an error is returned.
-func setBytes(buf []byte) (m Message, n int, e error) {
+func setBytes(buf []byte) (m Msg, n int, e error) {
 	if len(buf) < headerLen {
 		return nil, 0, NewError(1, 2, fmt.Sprintf("pack: buffer size too small: %d < %d", len(buf), headerLen))
 	}
@@ -359,7 +359,7 @@ func setBytes(buf []byte) (m Message, n int, e error) {
 }
 
 // Bytes convert Message into wireformat and returns it as a byte slice.
-func bytes(m Message) []byte {
+func bytes(m Msg) []byte {
 	switch x := m.(type) {
 	case *Open:
 		return x.bytes()
